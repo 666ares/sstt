@@ -292,7 +292,7 @@ process_web_request(int descriptorFichero)
 
 		// Leer la petición HTTP
 		int bytes_leidos = read(descriptorFichero, &buffer, BUFSIZE);
-	
+
 		// Comprobación de errores de lectura
 		if (bytes_leidos < 0) {
 			close(descriptorFichero);
