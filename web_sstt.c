@@ -210,37 +210,35 @@ response(int fd_form, int status_code, int fd, char *filetype)
 	char date[DATE_SIZE];
 	int index;
 
+    // Construir cabecera según el status_code
 	switch (status_code) {
 		case OK:
-			// Aquí siempre se usará el descriptor de fichero pasado
-			// como parámetro
 			index = sprintf(response, "%s", "HTTP/1.1 200 OK\r\n");
 			break;
 
 		case BADREQUEST:
 			index = sprintf(response, "%s", "HTTP/1.1 400 Bad Request\r\n");
-			// Abrimos el formulario 400
 			if ((fd_form = open("400.html", O_RDONLY)) < 0)
 				debug(ERROR, "system call", "open", 0);
 			break;
 
 		case NOENCONTRADO:
 			index = sprintf(response, "%s", "HTTP/1.1 404 Not Found\r\n");
-			// Abrimos el formulario 404
 			if ((fd_form = open("404.html", O_RDONLY)) < 0)
 				debug(ERROR, "system call", "open",  0);
 			break;
 
 		case PROHIBIDO:
 			index = sprintf(response, "%s", "HTTP/1.1 403 Forbidden\r\n");
-			// Abrimos el formulario 403
 			if ((fd_form = open("403.html", O_RDONLY)) < 0)
 				debug(ERROR, "system call", "open", 0);
 			break;
 	}
 
+    // Construimos la fecha
 	parse_date(date);
 
+    // Construimos la respuesta
 	index += sprintf(response + index, "Server: Ubuntu 16.04 SSTT\r\n");	
 	index += sprintf(response + index, "Date: %s\r\n", date);
 	index += sprintf(response + index, "Connection: Keep-Alive\r\n");
@@ -248,8 +246,10 @@ response(int fd_form, int status_code, int fd, char *filetype)
 	index += sprintf(response + index, "Content-Type: %s\r\n", filetype); 
 	index += sprintf(response + index, "\r\n");
 
+    // Escribir respuesta en el descriptor
 	write(fd, response, index);
 
+    // Escribir contenido del fichero en el descriptor
 	int bytes_leidos;
 	while ((bytes_leidos = read(fd_form, &response, BUFSIZE)) > 0)
 		write(fd, response, bytes_leidos);
@@ -276,6 +276,13 @@ input_timeout(int filedes, unsigned int seconds)
 		debug(ERROR, "system call", "select", 0);
 
 	return FD_ISSET(filedes, &rfds);
+}
+
+int
+is_forbidden(char *path)
+{
+    return 0;
+
 }
 
 void 
@@ -308,10 +315,6 @@ process_web_request(int descriptorFichero)
 		if (req->method == UNSUPPORTED || !req)
 			response(NOFILE, BADREQUEST, descriptorFichero, "text/html");
 
-		// Si la lectura tiene datos válidos terminar el buffer con un \0
-
-		// Se eliminan los caracteres de retorno de carro y nueva linea
-
 		/* POST */
 		if (req->method == POST) {
 			// Cadena que contiene el email ("email=jose@um.es")
@@ -342,62 +345,39 @@ process_web_request(int descriptorFichero)
 			if (strcmp(req->path, "/") == 0) {
 				if ((fd = open("index.html", O_RDONLY)) < 0)
 					debug(ERROR, "system call", "open", 0);
-
 				response(fd, OK, descriptorFichero, "text/html");
 			}
 			else {
-				// Obtener la extensión
-				char *ext = strrchr(req->path, '.');
-
-				// El fichero no tiene extensión
-				if (!ext)
-					response(NOFILE, NOENCONTRADO, descriptorFichero, "text/html");
-
-				else {
-					// Obtenemos el tipo de fichero
-					char *filetype = _ext_to_filetype(ext);
-					// La extensión no está soportada
-					if (!filetype) 
-						response(NOFILE, NOENCONTRADO, descriptorFichero, "text/html");
-					else { 
-						if ((fd = open(req->path + 1, O_RDONLY)) < 0) 
-							response(NOFILE, NOENCONTRADO, descriptorFichero, "text/html");
-						else
-							response(fd, OK, descriptorFichero, filetype);
-					}
-				}
+                // Comprobar si el usuario tiene permiso para acceder al directorio
+                if (is_forbidden(req->path) == 0) {
+                    // Obtener la extensión del fichero solicitado
+                    char *extension = strrchr(req->path, '.');
+                    
+                    if (!extension) {
+                        response(NOFILE, NOENCONTRADO, descriptorFichero, "text/html");
+                    }
+                    else {
+                        // Obtener el tipo de fichero
+                        char *filetype = _ext_to_filetype(extension);
+                        if (!filetype) {
+                            response(NOFILE, NOENCONTRADO, descriptorFichero, "text/html");
+                        }
+                        else {
+                            if ((fd = open(req->path + 1, O_RDONLY)) < 0)
+                                response(NOFILE, NOENCONTRADO, descriptorFichero, "text/html");
+                            else
+                                response(fd, OK, descriptorFichero, filetype);
+                        }
+                    }
+                } else {
+                    response(NOFILE, PROHIBIDO, descriptorFichero, "text/html");
+                }
 			}
 		}
-		//
-		//	TRATAR LOS CASOS DE LOS DIFERENTES METODOS QUE SE USAN
-		//	(Se soporta solo GET)
-		//
-		
-		//
-		//	Como se trata el caso de acceso ilegal a directorios superiores de la
-		//	jerarquia de directorios
-		//	del sistema
-		//
-		
-		//
-		//	Como se trata el caso excepcional de la URL que no apunta a ningún fichero
-		//	html
-		//
-		
-		//
-		//	Evaluar el tipo de fichero que se está solicitando, y actuar en
-		//	consecuencia devolviendolo si se soporta u devolviendo el error correspondiente en otro caso
-		//
-		
-		
-		//
-		//	En caso de que el fichero sea soportado, exista, etc. se envia el fichero con la cabecera
-		//	correspondiente, y el envio del fichero se hace en blockes de un máximo de  8kB
-		//
-		
-		close(descriptorFichero);
-		exit(1);
 	}
+    printf("Han pasado %d segundos sin peticiones, cerrando...\n", SEGS_SIN_PETICIONES);
+    close(descriptorFichero);
+    exit(1);
 }
 
 int main(int argc, char **argv)
