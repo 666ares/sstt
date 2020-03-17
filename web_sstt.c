@@ -12,21 +12,23 @@
 #include <time.h>
 #include <sys/stat.h>
 
-#define VERSION				24
-#define BUFSIZE				8096
-#define ERROR				42
-#define LOG					44
+#define VERSION			24
+#define BUFSIZE			8096
+#define ERROR			42
+#define LOG			44
 
 // HTTP Status codes
-#define	OK 					200
-#define BADREQUEST			400
-#define PROHIBIDO			403
+#define	OK 			200
+#define BADREQUEST		400
+#define PROHIBIDO		403
 #define NOENCONTRADO		404
+#define METHODNOTALLOWED	405
+#define UNSUPPORTEDMEDIATYPE	415
 
-#define NOFILE				0
+#define NOFILE			0
 
 #define SEGS_SIN_PETICIONES	10
-#define DATE_SIZE			128
+#define DATE_SIZE		128
 
 static const char *EMAIL = "joseantonio.pastorv%40um.es";
 
@@ -233,6 +235,18 @@ response(int fd_form, int status_code, int fd, char *filetype)
 			if ((fd_form = open("403.html", O_RDONLY)) < 0)
 				debug(ERROR, "system call", "open", 0);
 			break;
+
+		case UNSUPPORTEDMEDIATYPE:
+			index = sprintf(response, "%s", "HTTP/1.1 415 Unsupported Media Type\r\n");
+			if ((fd_form = open("415.html", O_RDONLY)) < 0)
+				debug(ERROR, "system call", "open", 0);
+			break;
+		
+		case METHODNOTALLOWED:
+			index = sprintf(response, "%s", "HTTP/1.1 405 Method Not Allowed\r\n");
+			if ((fd_form = open("405.html", O_RDONLY)) < 0)
+				debug(ERROR, "system call", "open", 0);
+			break;
 	}
 
     // Construimos la fecha
@@ -310,11 +324,13 @@ process_web_request(int descriptorFichero)
 		// path del archivo que se está pidiendo
 		struct Request *req = parse_request(buffer);
 
-		// Si el método no es válido (GOT, PUST, etc) o la ruta
-		// solicitada no es válida lo notificamos
-		if (req->method == UNSUPPORTED || !req)
+		// Si el método no es válido (GOT, PUST, etc) o la petición no
+		// está bien formada
+		if (req->method == UNSUPPORTED)
+			response(NOFILE, METHODNOTALLOWED, descriptorFichero, "text/html");
+		else if (!req)
 			response(NOFILE, BADREQUEST, descriptorFichero, "text/html");
-
+		
 		/* POST */
 		if (req->method == POST) {
 			// Cadena que contiene el email ("email=jose@um.es")
@@ -354,13 +370,13 @@ process_web_request(int descriptorFichero)
                     char *extension = strrchr(req->path, '.');
                     
                     if (!extension) {
-                        response(NOFILE, NOENCONTRADO, descriptorFichero, "text/html");
+                        response(NOFILE, BADREQUEST, descriptorFichero, "text/html");
                     }
                     else {
                         // Obtener el tipo de fichero
                         char *filetype = _ext_to_filetype(extension);
                         if (!filetype) {
-                            response(NOFILE, NOENCONTRADO, descriptorFichero, "text/html");
+                            response(NOFILE, UNSUPPORTEDMEDIATYPE, descriptorFichero, "text/html");
                         }
                         else {
                             if ((fd = open(req->path + 1, O_RDONLY)) < 0)
@@ -375,7 +391,6 @@ process_web_request(int descriptorFichero)
 			}
 		}
 	}
-    printf("Han pasado %d segundos sin peticiones, cerrando...\n", SEGS_SIN_PETICIONES);
     close(descriptorFichero);
     exit(1);
 }
