@@ -11,6 +11,7 @@
 #include <arpa/inet.h>
 #include <time.h>
 #include <sys/stat.h>
+#include <regex.h>
 
 #define VERSION			24
 #define BUFSIZE			8096
@@ -201,6 +202,27 @@ struct Request
 	return req;
 }
 
+int
+check_bad_request(const char *request)
+{
+	int match, err;
+	regex_t preg;
+	regmatch_t pmatch[6];
+	size_t nmatch = 6;
+	const char *str_regex = "^([GET|POST]+)(\\s+)(/.*)(\\s+)(HTTP/1.1)";
+
+	err = regcomp(&preg, str_regex, REG_EXTENDED);
+
+	if (err == 0) {
+		match = regexec(&preg, request, nmatch, pmatch, 0);
+		nmatch = preg.re_nsub;
+		regfree(&preg);
+		
+		if (match == 0) 		return 0;
+		else if (match == REG_NOMATCH)	return 1;
+	}	
+}
+
 void 
 response(int fd_form, int status_code, int fd, char *filetype)
 {
@@ -320,6 +342,14 @@ process_web_request(int descriptorFichero)
 			debug(ERROR, "system call", "read", 0);
 		}
 
+		// Comprobar si la petición está bien formada
+		char *peticion = strremove(buffer, "\r\n");
+		peticion = strstr(peticion, "HTTP/1.1");
+		int ret = check_bad_request(buffer);
+		if (ret == 1) {
+			response(NOFILE, BADREQUEST, descriptorFichero, "text/html");
+		}
+	
 		// Parsear la petición para obtener el método y el
 		// path del archivo que se está pidiendo
 		struct Request *req = parse_request(buffer);
