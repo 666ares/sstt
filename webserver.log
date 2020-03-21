@@ -1,0 +1,36 @@
+ INFO: Web server starting...:8080:8967
+ERROR: system call:bind Errno=98 exiting pid=8967
+ INFO: Web server starting...:8080:8981
+ INFO: request:Ha llegado una petición.:4
+ INFO: request:Ha llegado una petición.:4
+ INFO: request:Ha llegado una petición.:4
+ INFO: request:Ha llegado una petición.:4
+ INFO: request:Ha llegado una petición.:4
+ INFO: request:Ha llegado una petición.:4
+ INFO: request:Ha llegado una petición.:4
+ INFO: request:Ha llegado una petición.:4
+ INFO: Web server starting...:8080:9088
+ERROR: system call:bind Errno=98 exiting pid=9088
+ INFO: request:Ha llegado una petición.:4
+ INFO: request:Ha llegado una petición.:4
+ INFO: request:Ha llegado una petición.:4
+ INFO: request:Ha llegado una petición.:4
+ INFO: request:Ha llegado una petición.:4
+ INFO: request:Ha llegado una petición.:4
+ INFO: request:Ha llegado una petición.:4
+ INFO: request:Ha llegado una petición.:4
+ INFO: request:Ha llegado una petición.:4
+ INFO: request:Ha llegado una petición.:4
+ INFO: request:Ha llegado una petición.:4
+ INFO: request:Ha llegado una petición.:4
+ INFO: request:Ha llegado una petición.:4
+ INFO: request:Ha llegado una petición.:4
+ INFO: request:Ha llegado una petición.:4
+ INFO: request:Ha llegado una petición.:4
+ INFO: request:Ha llegado una petición.:4
+ INFO: request:Ha llegado una petición.:4
+ INFO: request:Ha llegado una petición.:4
+ INFO: request:Ha llegado una petición.:4
+ INFO: request:Ha llegado una petición.:4
+ INFO: request:Ha llegado una petición.:4
+ INFO: request:Ha llegado una petición.:4

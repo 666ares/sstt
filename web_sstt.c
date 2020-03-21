@@ -208,8 +208,30 @@ struct Request
  * @return 0 si está bien formada; 1 si no
  */
 int
-check_bad_request(const char *request)
+check_bad_request(char *request)
 {
+    /* Flag para indicar si la petición está bien formada o no. */
+    int mal_formada = 0;
+
+    /* Obtenemos la primera línea de la petición ('GET / HTTP/1.1') */
+    size_t len = strcspn(request, "\r");
+
+    char primera_linea[len];
+    char otras[strlen(request) - len];
+
+    primera_linea[len] = '\0';
+    otras[strlen(request) - len] = '\0';
+
+    memcpy(primera_linea, request, len);
+    memcpy(otras, request + len, strlen(request) - len);
+
+    char *lineas[10]; // ¿Qué tamaño tiene que tener esto?
+    int i = 0;
+    lineas[i] = strtok(otras, "\r\n");
+    while (lineas[i] != NULL)
+        lineas[++i] = strtok(NULL, "\r\n");
+
+    /* */    
 	int match, err;
 	regex_t preg;
 	regmatch_t pmatch[6];
@@ -219,22 +241,36 @@ check_bad_request(const char *request)
 	err = regcomp(&preg, str_regex, REG_EXTENDED);
 
 	if (err == 0) {
-		match = regexec(&preg, request, nmatch, pmatch, 0);
+		match = regexec(&preg, primera_linea, nmatch, pmatch, 0);
 		nmatch = preg.re_nsub;
 		regfree(&preg);
 		
-		if (match == 0) 		        return 0;
-		else if (match == REG_NOMATCH)	return 1;
+		if (match == REG_NOMATCH)	mal_formada = 1;
 	}	
+
+    regmatch_t pmatch2[5];
+    nmatch = 5;
+    const char *other_headers_regex = "^([A-Za-z]+)(:)(\\s+)([A-Za-z]+)";
+    int j = 0;
+
+    err = regcomp(&preg, other_headers_regex, REG_EXTENDED);
+
+    if (err == 0) {
+        while (lineas[j] != NULL) {
+            match = regexec(&preg, lineas[j], nmatch, pmatch2, 0);
+            nmatch = preg.re_nsub;
+            regfree(&preg);
+
+            if (match == REG_NOMATCH) mal_formada = 1;  
+            j++;
+        }
+    }
+    return mal_formada;
 }
 
 void 
 response(int fd_form, int status_code, int fd, char *filetype)
 {
-	// 'fd_form' será NULL SIEMPRE que 'status_code'
-	// sea distinto de 200. En ese caso, 'fd_form' será el descriptor
-	// del fichero correspondiente.
-
 	char response[BUFSIZE];
 	char date[DATE_SIZE];
 	int index;
@@ -352,15 +388,10 @@ process_web_request(int descriptorFichero)
          * entre el método y la ruta solicitada, si existe un espacio entre la ruta y
          * la versión de HTTP, etc.
          */
-        size_t len = strcspn(buffer, "\r");
-        char header[len];
-        header[len] = '\0';
-        memcpy(header, buffer, len);
-
         int ret;
-        if ((ret = check_bad_request(header)) == 1)
+        if ((ret = check_bad_request(buffer)) == 1)
             response(NOFILE, BADREQUEST, descriptorFichero, "text/html");
-        
+
 		// Parsear la petición para obtener el método y el
 		// path del archivo que se está pidiendo
 		struct Request *req = parse_request(buffer);
