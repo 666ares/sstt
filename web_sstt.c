@@ -13,23 +13,23 @@
 #include <sys/stat.h>
 #include <regex.h>
 
-#define VERSION			24
-#define BUFSIZE			8096
-#define ERROR			42
-#define LOG			44
+#define VERSION			        24
+#define BUFSIZE			        8096
+#define ERROR			        42
+#define LOG			            44
 
 // HTTP Status codes
-#define	OK 			200
-#define BADREQUEST		400
-#define PROHIBIDO		403
-#define NOENCONTRADO		404
-#define METHODNOTALLOWED	405
+#define	OK 			            200
+#define BADREQUEST	    	    400
+#define PROHIBIDO		        403
+#define NOENCONTRADO		    404
+#define METHODNOTALLOWED	    405
 #define UNSUPPORTEDMEDIATYPE	415
 
-#define NOFILE			0
+#define NOFILE			        0
 
-#define SEGS_SIN_PETICIONES	10
-#define DATE_SIZE		128
+#define SEGS_SIN_PETICIONES	    10
+#define DATE_SIZE		        128
 
 static const char *EMAIL = "joseantonio.pastorv%40um.es";
 
@@ -202,6 +202,11 @@ struct Request
 	return req;
 }
 
+/**
+ * Comprueba si la petición está bien formada de acuerdo a los estándares
+ * de HTTP.
+ * @return 0 si está bien formada; 1 si no
+ */
 int
 check_bad_request(const char *request)
 {
@@ -209,7 +214,7 @@ check_bad_request(const char *request)
 	regex_t preg;
 	regmatch_t pmatch[6];
 	size_t nmatch = 6;
-	const char *str_regex = "^([GET|POST]+)(\\s+)(/.*)(\\s+)(HTTP/1.1)";
+	const char *str_regex = "^([A-Za-z]+)(\\s+)(/.*)(\\s+)(HTTP/1.1)";
 
 	err = regcomp(&preg, str_regex, REG_EXTENDED);
 
@@ -218,7 +223,7 @@ check_bad_request(const char *request)
 		nmatch = preg.re_nsub;
 		regfree(&preg);
 		
-		if (match == 0) 		return 0;
+		if (match == 0) 		        return 0;
 		else if (match == REG_NOMATCH)	return 1;
 	}	
 }
@@ -342,25 +347,28 @@ process_web_request(int descriptorFichero)
 			debug(ERROR, "system call", "read", 0);
 		}
 
-		// Comprobar si la petición está bien formada
-		char *peticion = strremove(buffer, "\r\n");
-		peticion = strstr(peticion, "HTTP/1.1");
-		int ret = check_bad_request(buffer);
-		if (ret == 1) {
-			response(NOFILE, BADREQUEST, descriptorFichero, "text/html");
-		}
-	
+        /*
+         * Comprobar si la petición está bien formada, es decir, si existe un espacio
+         * entre el método y la ruta solicitada, si existe un espacio entre la ruta y
+         * la versión de HTTP, etc.
+         */
+        size_t len = strcspn(buffer, "\r");
+        char header[len];
+        header[len] = '\0';
+        memcpy(header, buffer, len);
+
+        int ret;
+        if ((ret = check_bad_request(header)) == 1)
+            response(NOFILE, BADREQUEST, descriptorFichero, "text/html");
+        
 		// Parsear la petición para obtener el método y el
 		// path del archivo que se está pidiendo
 		struct Request *req = parse_request(buffer);
 
-		// Si el método no es válido (GOT, PUST, etc) o la petición no
-		// está bien formada
+		// Si el método no es válido (GOT, PUST, etc)
 		if (req->method == UNSUPPORTED)
 			response(NOFILE, METHODNOTALLOWED, descriptorFichero, "text/html");
-		else if (!req)
-			response(NOFILE, BADREQUEST, descriptorFichero, "text/html");
-		
+	
 		/* POST */
 		if (req->method == POST) {
 			// Cadena que contiene el email ("email=jose@um.es")
