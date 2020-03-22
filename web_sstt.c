@@ -16,19 +16,19 @@
 #define VERSION			        24
 #define BUFSIZE			        8096
 #define ERROR			        42
-#define LOG			            44
+#define LOG			        44
 
 // HTTP Status codes
-#define	OK 			            200
-#define BADREQUEST	    	    400
+#define	OK 			        200
+#define BADREQUEST	    	    	400
 #define PROHIBIDO		        403
-#define NOENCONTRADO		    404
-#define METHODNOTALLOWED	    405
-#define UNSUPPORTEDMEDIATYPE	415
+#define NOENCONTRADO		    	404
+#define METHODNOTALLOWED	    	405
+#define UNSUPPORTEDMEDIATYPE		415
 
 #define NOFILE			        0
 
-#define SEGS_SIN_PETICIONES	    10
+#define SEGS_SIN_PETICIONES	    	10
 #define DATE_SIZE		        128
 
 static const char *EMAIL = "joseantonio.pastorv%40um.es";
@@ -104,14 +104,7 @@ response_size(int fd)
 	return file_stat.st_size;
 }
 
-/**
- * Rellena el array 'date' con la fecha actual en el formato
- * necesario en un mensaje HTTP.
- * @param date array donde se almacenará la fecha 
- * 
- * Sacado de: 
- * stackoverflow.com/questions/7548759/generate-a-date-string-in-http-response-date-format-in-c/7548846
- */
+// stackoverflow.com/questions/7548759/generate-a-date-string-in-http-response-date-format-in-c/7548846
 void
 parse_date(char *date)
 {
@@ -171,8 +164,7 @@ struct Request
 	// que necesitamos de la petición
 	struct Request *req = NULL;
 	req = malloc(sizeof(struct Request));
-	if (!req) 
-		return NULL;
+	if (!req) return NULL;
 	memset(req, 0, sizeof(struct Request));
 
 	// Parsear método
@@ -181,7 +173,6 @@ struct Request
 		req->method = GET;
 	else if (memcmp(raw_request, "POST", strlen("POST")) == 0)
 		req->method = POST;
-	// No es ni GET ni POST, mal formada
 	else
 		req->method = UNSUPPORTED;
 
@@ -367,8 +358,6 @@ process_web_request(int descriptorFichero)
 			close(descriptorFichero);
 			debug(ERROR, "system call", "read", 0);
 		}
-
-		printf("%s\n", buffer);
 
 		// Si la petición no es válida (no está bien formada...)
         	int ret;
