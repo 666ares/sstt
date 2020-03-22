@@ -144,7 +144,6 @@ char
 	extension++;
 
 	// Evitar ficheros acabados en punto pero sin extensión
-	// Ej: 'fichero.'
 	if (strcmp(extension, "") == 0)
 		return NULL;
 
@@ -197,75 +196,61 @@ struct Request
 	}
 	memcpy(req->path, raw_request, path_len);
 	req->path[path_len] = '\0';
-	raw_request += path_len + 1; // saltar el espacio
 
 	return req;
 }
 
-/**
- * Comprueba si la petición está bien formada de acuerdo a los estándares
- * de HTTP.
- * @return 0 si está bien formada; 1 si no
- */
 int
-check_bad_request(char *request)
+compile_and_execute_regex(int _pmatch, int _nmatch, const char *token,
+			  const char *regex)
 {
-    /* Flag para indicar si la petición está bien formada o no. */
-    int mal_formada = 0;
-
-    /* Obtenemos la primera línea de la petición ('GET / HTTP/1.1') */
-    size_t len = strcspn(request, "\r");
-
-    char primera_linea[len];
-    char otras[strlen(request) - len];
-
-    primera_linea[len] = '\0';
-    otras[strlen(request) - len] = '\0';
-
-    memcpy(primera_linea, request, len);
-    memcpy(otras, request + len, strlen(request) - len);
-
-    char *lineas[10]; // ¿Qué tamaño tiene que tener esto?
-    int i = 0;
-    lineas[i] = strtok(otras, "\r\n");
-    while (lineas[i] != NULL)
-        lineas[++i] = strtok(NULL, "\r\n");
-
-    /* */    
-	int match, err;
+	int is_valid = 0, match, err;
 	regex_t preg;
-	regmatch_t pmatch[6];
-	size_t nmatch = 6;
-	const char *str_regex = "^([A-Za-z]+)(\\s+)(/.*)(\\s+)(HTTP/1.1)";
+	regmatch_t pmatch[_pmatch];
+	size_t nmatch = _nmatch;
 
-	err = regcomp(&preg, str_regex, REG_EXTENDED);
+	err = regcomp(&preg, regex, REG_EXTENDED);
 
 	if (err == 0) {
-		match = regexec(&preg, primera_linea, nmatch, pmatch, 0);
+		match = regexec(&preg, token, nmatch, pmatch, 0);
 		nmatch = preg.re_nsub;
 		regfree(&preg);
-		
-		if (match == REG_NOMATCH)	mal_formada = 1;
-	}	
 
-    regmatch_t pmatch2[5];
-    nmatch = 5;
-    const char *other_headers_regex = "^([A-Za-z]+)(:)(\\s+)([A-Za-z]+)";
-    int j = 0;
+		if (!match)			is_valid = 1;
+		else if (match = REG_NOMATCH)	is_valid = 0;
+	}
 
-    err = regcomp(&preg, other_headers_regex, REG_EXTENDED);
+	return is_valid;
+}
 
-    if (err == 0) {
-        while (lineas[j] != NULL) {
-            match = regexec(&preg, lineas[j], nmatch, pmatch2, 0);
-            nmatch = preg.re_nsub;
-            regfree(&preg);
+int
+is_valid_request(char *request)
+{
+	// 'request' points to a string literal, which cannot be modified
+	// (as strtok would like to do), so we make a modifiable copy
+	char *request_copy = strdup(request);
 
-            if (match == REG_NOMATCH) mal_formada = 1;  
-            j++;
-        }
-    }
-    return mal_formada;
+	// Regular expressions to validate headers
+	const char *main_header_regex = "^([A-Za-z]+)(\\s+)(/.*)(\\s+)(HTTP/1.1)";
+	const char *other_headers_regex = "^([A-Za-z]+)(:)(\\s+)(.*)";
+
+	// Check is first line is valid ('XXXX /zzzz HTTP/1.1')
+	char *token;
+	token = strtok(token, "\r\n");
+
+	if (!compile_and_execute_regex(6, 6, token, main_header_regex))
+		return 0;
+
+	while (token != NULL) {
+		// Check if current line is valid or not
+		token = strtok(NULL, "\r\n");
+		if (token != NULL)
+			if (!compile_and_execute_regex(5, 5, token, other_headers_regex))
+				return 0;
+	}
+
+	free(request_copy);
+	return 1;
 }
 
 void 
@@ -275,7 +260,7 @@ response(int fd_form, int status_code, int fd, char *filetype)
 	char date[DATE_SIZE];
 	int index;
 
-    // Construir cabecera según el status_code
+    	// Construir cabecera según el status_code
 	switch (status_code) {
 		case OK:
 			index = sprintf(response, "%s", "HTTP/1.1 200 OK\r\n");
@@ -312,10 +297,10 @@ response(int fd_form, int status_code, int fd, char *filetype)
 			break;
 	}
 
-    // Construimos la fecha
+    	// Construimos la fecha
 	parse_date(date);
 
-    // Construimos la respuesta
+    	// Construimos la respuesta
 	index += sprintf(response + index, "Server: Ubuntu 16.04 SSTT\r\n");	
 	index += sprintf(response + index, "Date: %s\r\n", date);
 	index += sprintf(response + index, "Connection: Keep-Alive\r\n");
@@ -323,10 +308,10 @@ response(int fd_form, int status_code, int fd, char *filetype)
 	index += sprintf(response + index, "Content-Type: %s\r\n", filetype); 
 	index += sprintf(response + index, "\r\n");
 
-    // Escribir respuesta en el descriptor
+    	// Escribir respuesta en el descriptor
 	write(fd, response, index);
 
-    // Escribir contenido del fichero en el descriptor
+    	// Escribir contenido del fichero en el descriptor
 	int bytes_leidos;
 	while ((bytes_leidos = read(fd_form, &response, BUFSIZE)) > 0)
 		write(fd, response, bytes_leidos);
@@ -383,14 +368,14 @@ process_web_request(int descriptorFichero)
 			debug(ERROR, "system call", "read", 0);
 		}
 
-        /*
-         * Comprobar si la petición está bien formada, es decir, si existe un espacio
-         * entre el método y la ruta solicitada, si existe un espacio entre la ruta y
-         * la versión de HTTP, etc.
-         */
-        int ret;
-        if ((ret = check_bad_request(buffer)) == 1)
-            response(NOFILE, BADREQUEST, descriptorFichero, "text/html");
+		printf("%s\n", buffer);
+
+		// Si la petición no es válida (no está bien formada...)
+        	int ret;
+        	if (!is_valid_request(buffer)) {
+            		response(NOFILE, BADREQUEST, descriptorFichero, "text/html");
+			break;
+		}
 
 		// Parsear la petición para obtener el método y el
 		// path del archivo que se está pidiendo
@@ -409,18 +394,17 @@ process_web_request(int descriptorFichero)
 
 			// Comprobar mi email con el introducido en el formulario
 			int fd_form;
-			if (strcmp(EMAIL, only_email) == 0) { // Los correos coinciden
+			if (strcmp(EMAIL, only_email) == 0) {
 				if ((fd_form = open("accion_form_ok.html", O_RDONLY)) < 0)
 					debug(ERROR, "system call", "open", 0);
 			}
-			else { // Los correos no coinciden
+			else {
 				if ((fd_form = open("accion_form_ko.html", O_RDONLY)) < 0)
 					debug(ERROR, "system call", "open", 0);
 			}
 
 			// Mandamos la respuesta con el formulario correspondiente
 			response(fd_form, OK, descriptorFichero, "text/html");
-
 		}
 		/* GET */
 		else if (req->method == GET) {
@@ -431,33 +415,30 @@ process_web_request(int descriptorFichero)
 				if ((fd = open("index.html", O_RDONLY)) < 0)
 					debug(ERROR, "system call", "open", 0);
 				response(fd, OK, descriptorFichero, "text/html");
-			}
-			else {
-                // Comprobar si el usuario tiene permiso para acceder al directorio
-                if (is_forbidden(req->path) == 0) {
-                    // Obtener la extensión del fichero solicitado
-                    char *extension = strrchr(req->path, '.');
+			} else {
+                		// Comprobar si el usuario tiene permiso para acceder al directorio
+                		if (is_forbidden(req->path) == 0) {
+                    			// Obtener la extensión del fichero solicitado
+                    			char *extension = strrchr(req->path, '.');
                     
-                    if (!extension) {
-                        response(NOFILE, BADREQUEST, descriptorFichero, "text/html");
-                    }
-                    else {
-                        // Obtener el tipo de fichero
-                        char *filetype = _ext_to_filetype(extension);
-                        if (!filetype) {
-                            response(NOFILE, UNSUPPORTEDMEDIATYPE, descriptorFichero, "text/html");
-                        }
-                        else {
-                            if ((fd = open(req->path + 1, O_RDONLY)) < 0)
-                                response(NOFILE, NOENCONTRADO, descriptorFichero, "text/html");
-                            else
-                                response(fd, OK, descriptorFichero, filetype);
-                        }
-                    }
-                } else {
-                    response(NOFILE, PROHIBIDO, descriptorFichero, "text/html");
-                }
+                    			if (!extension)
+                        			response(NOFILE, BADREQUEST, descriptorFichero, "text/html");
+					else {
+                        			// Obtener el tipo de fichero
+                        			char *filetype = _ext_to_filetype(extension);
+                        			if (!filetype)
+                            				response(NOFILE, UNSUPPORTEDMEDIATYPE, descriptorFichero, "text/html");
+						else {
+                            				if ((fd = open(req->path + 1, O_RDONLY)) < 0)
+                                				response(NOFILE, NOENCONTRADO, descriptorFichero, "text/html");
+                            				else
+                                				response(fd, OK, descriptorFichero, filetype);
+                        			}
+                    			}
+                		} else 
+                    			response(NOFILE, PROHIBIDO, descriptorFichero, "text/html");
 			}
+			close(fd);
 		}
 	}
     close(descriptorFichero);
