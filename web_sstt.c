@@ -15,20 +15,21 @@
 
 #define VERSION			        24
 #define BUFSIZE			        8096
+#define MAXBUFSIZE              8192
 #define ERROR			        42
-#define LOG			        44
+#define LOG			            44
 
 // HTTP Status codes
-#define	OK 			        200
-#define BADREQUEST	    	    	400
+#define	OK 			            200
+#define BADREQUEST	    	    400
 #define PROHIBIDO		        403
-#define NOENCONTRADO		    	404
-#define METHODNOTALLOWED	    	405
-#define UNSUPPORTEDMEDIATYPE		415
+#define NOENCONTRADO		    404
+#define METHODNOTALLOWED	    405
+#define UNSUPPORTEDMEDIATYPE	415
 
 #define NOFILE			        0
 
-#define SEGS_SIN_PETICIONES	    	10
+#define SEGS_SIN_PETICIONES	    10
 #define DATE_SIZE		        128
 
 static const char *EMAIL = "joseantonio.pastorv%40um.es";
@@ -229,7 +230,7 @@ is_valid_request(char *request)
 
 	// Check is first line is valid ('XXXX /zzzz HTTP/1.1')
 	char *token;
-	token = strtok(token, "\r\n");
+	token = strtok(request_copy, "\r\n");
 
 	if (!compile_and_execute_regex(6, 6, token, main_header_regex))
 		return 0;
@@ -241,7 +242,6 @@ is_valid_request(char *request)
 			if (!compile_and_execute_regex(5, 5, token, other_headers_regex))
 				return 0;
 	}
-
 	free(request_copy);
 	return 1;
 }
@@ -249,7 +249,7 @@ is_valid_request(char *request)
 void 
 response(int fd_form, int status_code, int fd, char *filetype)
 {
-	char response[BUFSIZE];
+	char response[MAXBUFSIZE];
 	char date[DATE_SIZE];
 	int index;
 
@@ -307,7 +307,7 @@ response(int fd_form, int status_code, int fd, char *filetype)
 
     	// Escribir contenido del fichero en el descriptor
 	int bytes_leidos;
-	while ((bytes_leidos = read(fd_form, &response, BUFSIZE)) > 0)
+	while ((bytes_leidos = read(fd_form, &response, MAXBUFSIZE)) > 0)
 		write(fd, response, bytes_leidos);
 
 }
@@ -315,7 +315,8 @@ response(int fd_form, int status_code, int fd, char *filetype)
 // gnu.org/software/libc/manual/html_node/Waiting-for-I_002fO.html
 // manpages.ubuntu.com/manpages/bionic/es/man2/select_tut.2.html
 int
-input_timeout(int filedes, unsigned int seconds)
+input_timeout(int filedes, unsigned int seconds,
+              unsigned int microsecs)
 {
 	fd_set rfds;
 	struct timeval tv;
@@ -326,7 +327,7 @@ input_timeout(int filedes, unsigned int seconds)
 
 	/* Initialize the timeout data structure. */
 	tv.tv_sec = seconds;
-	tv.tv_usec = 0;
+	tv.tv_usec = microsecs;
 
 	if ((select(filedes + 1, &rfds, NULL, NULL, &tv)) < 0)
 		debug(ERROR, "system call", "select", 0);
@@ -345,16 +346,21 @@ void
 process_web_request(int descriptorFichero)
 {
 	// Mecanismo de persistencia HTTP
-	while (input_timeout(descriptorFichero, SEGS_SIN_PETICIONES)) {
+	while (input_timeout(descriptorFichero, SEGS_SIN_PETICIONES, 0)) {
 	
 		debug(LOG, "request", "Ha llegado una petición.", descriptorFichero);
 
 		// Definir buffer y variables necesarias para leer las peticiones
-		char buffer[BUFSIZE];
+		char buffer[MAXBUFSIZE];
 		char *request;
 
 		// Leer la petición HTTP
-		int bytes_leidos = read(descriptorFichero, &buffer, BUFSIZE);
+		int bytes_leidos = read(descriptorFichero, buffer, MAXBUFSIZE);
+        while (input_timeout(descriptorFichero, 0, 100000)) {
+            bytes_leidos += read(descriptorFichero, 
+                                 buffer + bytes_leidos,
+                                 MAXBUFSIZE - bytes_leidos);
+        }
 
 		// Comprobación de errores de lectura
 		if (bytes_leidos < 0) {
@@ -363,11 +369,10 @@ process_web_request(int descriptorFichero)
 		}
 
 		// Si la petición no es válida (no está bien formada...)
-        	int ret;
-        	if (!is_valid_request(buffer)) {
-            		response(NOFILE, BADREQUEST, descriptorFichero, "text/html");
-			break;
-		}
+        if (!is_valid_request(buffer)) {
+            response(NOFILE, BADREQUEST, descriptorFichero, "text/html");
+            break;
+        }
 
 		// Parsear la petición para obtener el método y el
 		// path del archivo que se está pidiendo
@@ -430,9 +435,8 @@ process_web_request(int descriptorFichero)
                 		} else 
                     			response(NOFILE, PROHIBIDO, descriptorFichero, "text/html");
 			}
-			close(fd);
 		}
-	}
+    }
     close(descriptorFichero);
     exit(1);
 }
