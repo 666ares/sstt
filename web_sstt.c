@@ -168,10 +168,12 @@ struct Request
 	memset(req, 0, sizeof(struct Request));
 
 	// Parsear método
+	#define S_GET 	"GET"
+	#define S_POST	"POST"
 	size_t method_len = strcspn(raw_request, " ");
-	if (memcmp(raw_request, "GET", strlen("GET")) == 0)
+	if (strncmp(raw_request, S_GET, sizeof S_GET - 1) == 0)
 		req->method = GET;
-	else if (memcmp(raw_request, "POST", strlen("POST")) == 0)
+	else if (strncmp(raw_request, S_POST, sizeof S_POST - 1) == 0)
 		req->method = POST;
 	else
 		req->method = UNSUPPORTED;
@@ -223,7 +225,7 @@ is_valid_request(char *request)
 
 	// Regular expressions to validate headers
 	const char *main_header_regex = "^([A-Za-z]+)(\\s+)(/.*)(\\s+)(HTTP/1.1)";
-	const char *other_headers_regex = "^([A-Za-z]+)(:)(\\s+)(.*)";
+	const char *other_headers_regex = "^(.*)(:)(\\s+)(.*)";
 
 	// Check is first line is valid ('XXXX /zzzz HTTP/1.1')
 	char *token;
@@ -294,7 +296,8 @@ response(int fd_form, int status_code, int fd, char *filetype)
     	// Construimos la respuesta
 	index += sprintf(response + index, "Server: Ubuntu 16.04 SSTT\r\n");	
 	index += sprintf(response + index, "Date: %s\r\n", date);
-	index += sprintf(response + index, "Connection: Keep-Alive\r\n");
+	index += sprintf(response + index, "Connection: keep-alive\r\n");
+	index += sprintf(response + index, "Keep-Alive: timeout=10\r\n");
 	index += sprintf(response + index, "Content-Length: %d\r\n", response_size(fd_form));
 	index += sprintf(response + index, "Content-Type: %s\r\n", filetype); 
 	index += sprintf(response + index, "\r\n");
