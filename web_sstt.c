@@ -221,7 +221,7 @@ compile_and_execute_regex(int _pmatch, int _nmatch,
 }
 
 int
-is_valid_request(char *request)
+is_valid_request(char request[])
 {
 	// 'request' points to a string literal, which cannot be modified
 	// (as strtok would like to do), so we make a modifiable copy
@@ -234,14 +234,14 @@ is_valid_request(char *request)
 
 	// Check is first line is valid ('XXXX /zzzz HTTP/1.1')
 	char *token;
-	token = strtok(request_copy, "\r\n");
+	token = strtok(request_copy, "##");
 
 	if (!compile_and_execute_regex(6, 6, token, main_header_regex))
 		return 0;
 
 	while (token != NULL) {
 		// Check if current line is valid or not
-		token = strtok(NULL, "\r\n");
+		token = strtok(NULL, "##");
 		if (token != NULL) {
             /* Check 'email=' header on POST request */
             if (strstr(token, "email=") != NULL) {
@@ -380,6 +380,11 @@ process_web_request(int descriptorFichero)
 		}
 
         buffer[bytes_leidos] = '\0';
+
+        for (long i = 0; i < bytes_leidos; i++) {
+            if (buffer[i] == '\r' || buffer[i] == '\n')
+                buffer[i] = '#';
+        }
 
 		/* Comprobar si la petición es válida */
         if (!is_valid_request(buffer)) {
