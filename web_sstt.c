@@ -349,6 +349,12 @@ input_timeout(int filedes, unsigned int seconds,
 
 int
 is_forbidden(char *path) {
+	char buffer[strlen(path)];
+	strcpy(buffer, path);
+
+	if (strstr(buffer, "../") != NULL || buffer[1] == '/')
+		return 1;
+
 	return 0;
 }
 
