@@ -13,24 +13,22 @@
 #include <sys/stat.h>
 #include <regex.h>
 
-#define VERSION			        24
-#define BUFSIZE			        8096
-#define MAXBUFSIZE             	 	8192
-#define ERROR			        42
-#define LOG			        44
+#define VERSION			24
+#define BUFSIZE			8096
+#define ERROR			42
+#define LOG			44
 
-#define	OK 			        200
-#define BADREQUEST	    	    	400
-#define PROHIBIDO		        403
-#define NOENCONTRADO		    	404
-#define METHODNOTALLOWED	    	405
-#define UNSUPPORTEDMEDIATYPE		415
+#define	OK 			200
+#define BADREQUEST	    	400
+#define PROHIBIDO		403
+#define NOENCONTRADO		404
+#define METHODNOTALLOWED	405
+#define UNSUPPORTEDMEDIATYPE	415
 
-#define NOFILE			        0
+#define NOFILE			0
 
-#define SEGS_SIN_PETICIONES	    	10
-#define USECS_POR_LECTURA		100000
-#define DATE_SIZE		        128
+#define SEGS_SIN_PETICIONES	10
+#define DATE_SIZE		128
 
 static const char *EMAIL = "joseantonio.pastorv%40um.es";
 
@@ -59,29 +57,33 @@ struct {
 
 void 
 debug(int log_message_type, char *message, char *additional_info, 
-	  int socket_fd)
+      int socket_fd)
 {
 	int fd;
 	char logbuffer[BUFSIZE * 2];
 	
 	switch (log_message_type) {
+
 		case ERROR: 
-			(void)sprintf(logbuffer,"ERROR: %s:%s Errno=%d exiting pid=%d", message, 
-					additional_info, errno, getpid());
+			(void)sprintf(logbuffer,"ERROR: %s:%s Errno=%d exiting pid=%d",
+					message, additional_info, errno, getpid());
 			break;
 
 		case PROHIBIDO:
 			// Enviar como respuesta 403 Forbidden
-			(void)sprintf(logbuffer,"FORBIDDEN: %s:%s", message, additional_info);
+			(void)sprintf(logbuffer,"FORBIDDEN: %s:%s", 
+					message, additional_info);
 			break;
 
 		case NOENCONTRADO:
 			// Enviar como respuesta 404 Not Found
-			(void)sprintf(logbuffer,"NOT FOUND: %s:%s", message, additional_info);
+			(void)sprintf(logbuffer,"NOT FOUND: %s:%s", 	
+					message, additional_info);
 			break;
 
 		case LOG: 
-			(void)sprintf(logbuffer," INFO: %s:%s:%d", message, additional_info, socket_fd); 
+			(void)sprintf(logbuffer," INFO: %s:%s:%d", 
+					message, additional_info, socket_fd); 
 			break;
 	}
 
@@ -96,15 +98,35 @@ debug(int log_message_type, char *message, char *additional_info,
 		exit(3);
 }
 
-int
+/*
+ * Devuelve el tamaño del fichero asociado al descriptor pasado como
+ * argumento en bytes.
+ *
+ * @param 'fd' descriptor del fichero.
+ *
+ * @return tamaño total del fichero asociado al descriptor (en bytes).
+ */
+
+long int
 response_size(int fd)
 {
-	struct stat file_stat;
-	fstat(fd, &file_stat);
-	return file_stat.st_size;
+	struct stat st;
+	
+	if (fstat(fd, &st) == 0)
+		return st.st_size;
+	else
+		debug(ERROR, "system call", "fstat", 0);
 }
 
 // stackoverflow.com/questions/7548759/generate-a-date-string-in-http-response-date-format-in-c/7548846
+
+/*
+ * Genera la fecha actual en el formato necesario para una
+ * respuesta HTTP.
+ *
+ * @param 'date' cadena donde almacenar la fecha actual.
+ */
+
 void
 parse_date(char *date)
 {
@@ -114,6 +136,16 @@ parse_date(char *date)
 }
 
 // stackoverflow.com/questions/47116974/remove-a-substring-from-a-string-in-c
+
+/* 
+ * Elimina todas las subcadenas 'sub' presentes en la cadena 'str'.
+ *
+ * @param 'str' cadena de la que se desean eliminar las subcadenas.
+ * @param 'sub' subcadena que se desea eliminar de 'str'
+ *
+ * @return 'str' con las ocurrencias de 'sub' eliminadas.
+ */
+
 char
 *strremove(char *str, const char *sub)
 {
@@ -130,46 +162,84 @@ char
 	return str;
 }
 
+/*
+ * Comprueba si la extensión pasada como argumento está
+ * soportada por el servidor.
+ *
+ * @param 'extension' extensión del archivo solicitado.
+ *
+ * @return 'NULL' si el fichero no tiene extensión o no
+ * está soportada, en otro caso, devuelve el tipo de
+ * archivo asociado a esa extensión.
+ */
+
 char
-*_ext_to_filetype(char *extension)
+*ext_to_filetype(char *extension)
 {
-	// Quitamos el '.'
+	// Saltamos el punto que indica que el fichero tiene extensión
+
 	extension++;
 
-	// Evitar ficheros acabados en punto pero sin extensión
-	if (strcmp(extension, "") == 0)
-		return NULL;
+	// El fichero acaba en punto pero no tiene extensión
 
-	int idx = 0;
-	while (extensions[idx].ext != 0) {
-		if (strcmp(extension, extensions[idx].ext) == 0)
-			return strdup(extensions[idx].filetype);
-		idx++;
+	if (!strcmp(extension, "")) return NULL;
+
+	int i = 0;
+	while (extensions[i].ext != 0) {
+		if (!strcmp(extension, extensions[i].ext))
+			return extensions[i].filetype;
+		i++;
 	}
+
+	// La extensión no está soportada
 
 	return NULL;
 }
 
+/*
+ * Libera la memoria asociada a una estructura de tipo Request.
+ *
+ * @param 'req' puntero a una estructura que contiene los distintos
+ * campos de la petición.
+ */
+
 void
 free_request(struct Request *req)
 {
+
 	free(req->path);
 	free(req);
 }
 
+/*
+ * Parsea la petición HTTP almacenada en el buffer pasado como argumento.
+ *
+ * @param 'raw_request' array que contiene la petición HTTP leída
+ * del socket.
+ *
+ * @return estructura de tipo Request con los distintos campos de
+ * la petición.
+ */
+
 struct Request
-*parse_request(char *raw_request)
+*parse_request(char raw_request[])
 {
+	#define S_GET	"GET"
+	#define S_POST	"POST"
+
+	//
 	// Creamos la estructura que almacenará los datos
 	// que necesitamos de la petición
+	//
+
 	struct Request *req = NULL;
 	req = malloc(sizeof(struct Request));
 	if (!req) return NULL;
 	memset(req, 0, sizeof(struct Request));
 
-	// Parsear método
-	#define S_GET 	"GET"
-	#define S_POST	"POST"
+	//
+	// Parseamos el método de la petición
+	//
 
 	size_t method_len = strcspn(raw_request, " ");
 	if (strncmp(raw_request, S_GET, sizeof S_GET - 1) == 0)
@@ -179,20 +249,42 @@ struct Request
 	else
 		req->method = UNSUPPORTED;
 
-	raw_request += method_len + 1; // saltar el espacio
+	//
+	// Saltamos el espacio después del nombre del método
+	//
 
-	// Parsear path
+	raw_request += method_len + 1;
+
+	//
+	// Parseamos la ruta del fichero solicitado
+	//
+
 	size_t path_len = strcspn(raw_request, " ");
 	req->path = malloc(path_len + 1);
 	if (!req->path) {
 		free_request(req);
 		return NULL;
 	}
+
 	memcpy(req->path, raw_request, path_len);
 	req->path[path_len] = '\0';
 
 	return req;
 }
+
+/*
+ * Compila la expresión regular pasada como argumento y comprueba si
+ * hace 'match' con el token también pasado como argumento.
+ 
+ * @param '_pmatch' tamaño del array donde guardar cada uno de los
+ * grupos de la expresión regular
+ * @param '_nmatch' número de grupos que deben hacer match
+ * @param 'token' cadena sobre la que aplicar la expresión regular
+ * @param 'regex' expresión regular
+
+ * @return '1' si la expresión regular hace match, '0' si el token
+ * no coincide.
+ */
 
 int
 compile_and_execute_regex(int _pmatch, int _nmatch, 
@@ -218,51 +310,102 @@ compile_and_execute_regex(int _pmatch, int _nmatch,
 	return is_valid;
 }
 
+/*
+ * Comprueba si la petición HTTP almacenada en el buffer pasado como argumento es
+ * válida o no.
+ *
+ * @param 'request' array con la petición HTTP
+ *
+ * @return '0' si la petición no es válida, '1' si sí lo es
+ */
+
 int
 is_valid_request(char request[])
 {
-	// 'request' points to a string literal, which cannot be modified
-	// (as strtok would like to do), so we make a modifiable copy
+	//
+	// Usamos 'strdup' para crear una copia del buffer y poder modificarlo
+	// con strtok
+	//
+
 	char *request_copy = strdup(request);
 
-	// Regular expressions to validate headers
+	//
+	// Expresiones regulares para validar la primera, el resto de cabeceras
+	// y la query de la petición POST que contiene el correo electrónico
+	//
+
 	const char *main_header_regex 	= "^([A-Za-z]+)(\\s+)(/.*)(\\s+)(HTTP/1.1)";
 	const char *other_headers_regex = "^(.*)(:)(\\s+)(.*)";
     	const char *email_query_regex 	= "^(.*)(=)(.*)";
 
-	// Check is first line is valid ('XXXX /zzzz HTTP/1.1')
+	//
+	// Comprobamos la primera línea de la petición
+	//
+
 	char *token = strtok(request_copy, "##");
 
-	if (!compile_and_execute_regex(6, 6, token, main_header_regex))
+	if (!compile_and_execute_regex(6, 6, token, main_header_regex)) 
 		return 0;
 
+	//
+	// Comprobamos el resto de cabeceras
+	//
+
 	while (token != NULL) {
-		// Check if current line is valid or not
+
+		// 
+		// Obtenemos la siguiente cabecera
+		//
+
 		token = strtok(NULL, "##");
+
 		if (token != NULL) {
-            		/* Check 'email=' header on POST request */
-            		if (strstr(token, "email=") != NULL) {
+			
+			//
+			// Comprobamos si se trata de la query de una petición POST que
+			// contiene el correo o no
+			//
+
+            		if (strstr(token, "email=") != NULL)
                 		if (!compile_and_execute_regex(4, 4, token, email_query_regex))
                     			return 0;
-            		} else {
-			    if (!compile_and_execute_regex(5, 5, token, other_headers_regex))
+	 
+			else if (!compile_and_execute_regex(5, 5, token, other_headers_regex))
 				    return 0;
-            		}
         	}
 	}
 	
+	//
+	// Liberamos el buffer donde hemos copiado la petición y devolvemos
+	// '1' indicando que la petición es válida
+	//
+
 	free(request_copy);
 	return 1;
 }
 
+/*
+ * Genera una respuesta para la petición HTTP de acuerdo al código
+ * pasado como argumento.
+ *
+ * @param 'fd_form' descriptor del fichero html que se enviará.
+ * @param 'status_code' código de respuesta a la petición.
+ * @param 'fd' descriptor donde escribir la respuesta.
+ * @param 'filetype' tipo del fichero que se va a mandar
+ *
+ */
+
 void 
 response(int fd_form, int status_code, int fd, char *filetype)
 {
-	char response[MAXBUFSIZE];
-	char date[DATE_SIZE];
+	char response[BUFSIZE];		// Buffer donde se almacena la respuesta HTTP
+	char date[DATE_SIZE];		// Buffer donde se almacena la fecha
 	int index;
 
+	//
     	// Construir cabecera según el status_code
+	//
+	
 	switch (status_code) {
 		case OK:
 			index = sprintf(response, "%s", "HTTP/1.1 200 OK\r\n");
@@ -299,45 +442,93 @@ response(int fd_form, int status_code, int fd, char *filetype)
 			break;
 	}
 
+	//
     	// Construimos la fecha
+	//
+	
 	parse_date(date);
 
+	//
     	// Construimos la respuesta
-	index += sprintf(response + index, "Server: Ubuntu 16.04 SSTT\r\n");	
+	//
+	
+	index += sprintf(response + index, "Server: web_sstt\r\n");	
 	index += sprintf(response + index, "Date: %s\r\n", date);
 	index += sprintf(response + index, "Connection: keep-alive\r\n");
 	index += sprintf(response + index, "Keep-Alive: timeout=10\r\n");
-	index += sprintf(response + index, "Content-Length: %d\r\n", response_size(fd_form));
+	index += sprintf(response + index, "Content-Length: %ld\r\n", response_size(fd_form));
 	index += sprintf(response + index, "Content-Type: %s\r\n", filetype); 
 	index += sprintf(response + index, "\r\n");
 
+	//
     	// Escribir respuesta en el descriptor
+	//
+	
 	write(fd, response, index);
 
-    	// Escribir contenido del fichero en el descriptor
+	//
+    	// Escribir en el descriptor el contenido del fichero en bloques de
+	// como máximo 8 kB
+	//
+	
 	int bytes_leidos;
-	while ((bytes_leidos = read(fd_form, &response, MAXBUFSIZE)) > 0)
+	while ((bytes_leidos = read(fd_form, &response, BUFSIZE)) > 0)
 		write(fd, response, bytes_leidos);
 
+	//
 	// Cerrar formulario
-    	if (status_code != OK) 
-        	close(fd_form);
+        //
+	
+	close(fd_form);
 }
 
-// gnu.org/software/libc/manual/html_node/Waiting-for-I_002fO.html
-// manpages.ubuntu.com/manpages/bionic/es/man2/select_tut.2.html
+/*
+ * Indica si el usuario tiene permisos para acceder a la ruta pasada
+ * como argumento.
+ *
+ * @param 'path' cadena con la ruta hasta el fichero solicitado.
+ *
+ * @return '1' si el usuario no tiene permisos para acceder al
+ * fichero, '0' en caso contrario.
+ */
+
+int
+is_forbidden(char *path) 
+{
+
+	char buffer[strlen(path)];
+	strcpy(buffer, path);
+
+	//
+	// Si se encuentra ls subcadena '../' (acceso a un directorio superior) o la petición
+	// comienza por '/' (ruta absoluta) se devuelve 1 indicando que el usuario no tiene
+	// acesso al recurso solicitado
+	//
+
+	if (strstr(buffer, "../") != NULL || buffer[1] == '/') 
+		return 1;
+
+	return 0;
+}
+
 int
 input_timeout(int filedes, unsigned int seconds,
-              unsigned int microsecs)
+	      unsigned int microsecs)
 {
 	fd_set rfds;
 	struct timeval tv;
 
-	/* Initialize the file descriptor set. */
+	//
+	// Initialize the file descriptor set
+	//
+	
 	FD_ZERO(&rfds);
 	FD_SET(filedes, &rfds);
 
-	/* Initialize the timeout data structure. */
+	//
+	// Initialize the timeout data structure
+	//
+	
 	tv.tv_sec = seconds;
 	tv.tv_usec = microsecs;
 
@@ -347,123 +538,191 @@ input_timeout(int filedes, unsigned int seconds,
 	return FD_ISSET(filedes, &rfds);
 }
 
-int
-is_forbidden(char *path) {
-	char buffer[strlen(path)];
-	strcpy(buffer, path);
-
-	if (strstr(buffer, "../") != NULL || buffer[1] == '/')
-		return 1;
-
-	return 0;
-}
-
 void 
 process_web_request(int descriptorFichero)
-{
-	/* Persistencia: comprobar constantemente si hay datos */
-	while (input_timeout(descriptorFichero, SEGS_SIN_PETICIONES, 0)) {
+{	
+	debug(LOG, "request", "Ha llegado una petición.", descriptorFichero);
+
+	//
+	// Definir buffer y variables necesarias para leer las peticiones
+	//
 	
-		debug(LOG, "request", "Ha llegado una petición.", descriptorFichero);
+	char 	buffer[BUFSIZE + 1];	// Buffer donde se almacena la petición recibida
+	struct 	Request *req;		// Estructura donde guardar los distintos campos de la petición
+	long 	bytes_leidos;		// Bytes leídos de la petición
+	long 	indice;			// Variable auxiliar para recorrer el buffer
+	int 	fd;			// Descriptor para abrir los html
+	
+	//
+	// Leer la petición HTTP
+	//
+	
+	bytes_leidos = read(descriptorFichero, buffer, BUFSIZE);
 
-		/* Definir buffer y variables necesarias para leer las peticiones */
-		char buffer[MAXBUFSIZE];
+	while (input_timeout(descriptorFichero, 0, 100000))
+		bytes_leidos += read(descriptorFichero, buffer + bytes_leidos,
+					BUFSIZE - bytes_leidos);
 
-		/* Leer la petición HTTP */
-		int bytes_leidos = read(descriptorFichero, buffer, MAXBUFSIZE);
+	//
+	// Comprobación de errores de lectura
+	//	
+	
+	if (bytes_leidos < 0) {
+		close(descriptorFichero);
+		debug(ERROR, "system call", "read", 0);
+	}
 
-        	/* Comprobar si quedan datos por leer cada 1s */
-        	while (input_timeout(descriptorFichero, 0, USECS_POR_LECTURA))
-            		bytes_leidos += read(descriptorFichero, buffer + bytes_leidos,
-                                    		MAXBUFSIZE - bytes_leidos);
+	//
+	// Si la lectura tiene datos válidos terminar el buffer con un \0
+	// (Cuando 0 < bytes_leidos < BUFSIZE)
+	//
+        
+	if (bytes_leidos < BUFSIZE)
+		buffer[bytes_leidos] = '\0';
 
-		/* Comprobación de errores de lectura */
-		if (bytes_leidos < 0) {
-			close(descriptorFichero);
-			debug(ERROR, "system call", "read", 0);
+	//
+	// Se eliminan los caracteres de retorno de carro y nueva línea
+	//
+        	
+	for (indice = 0; indice < bytes_leidos; indice++) {
+        	if (buffer[indice] == '\r' || buffer[indice] == '\n')
+                	buffer[indice] = '#';
+        }
+
+	//
+	// Comprobar si la petición es válida
+	//
+        
+	if (!is_valid_request(buffer)) {
+        	response(NOFILE, BADREQUEST, descriptorFichero, "text/html");
+		return;
+	}
+
+	// 
+	// Parsear la petición para obtener método y path solicitado
+	//
+	
+	req = parse_request(buffer);
+
+	//
+	// Devolvemos un error indicando que el método no está soportado
+	// (No es un GET o un POST)
+	//
+
+	if (req->method == UNSUPPORTED) {
+		response(NOFILE, METHODNOTALLOWED, descriptorFichero, "text/html");
+		return;
+	}
+
+	//
+	// TRATAR LOS CASOS DE LOS DIFERENTES MÉTODOS QUE SE USAN
+	// (Se soporta solo GET)
+	//
+	
+	if (req->method == POST) {
+		// Obtenemos la query que contiene el email del usuario
+		char *email_query = strstr(buffer, "email=");
+		// Sacamos únicamente el email
+		char *only_email = strremove(email_query, "email=");
+
+		//
+		// Comprobamos el email introducido en el formulario y devolvemos el
+		// html correspondiente en función de si es correcto el correo o no
+		//
+		
+		if (strcmp(EMAIL, only_email) == 0) {
+			if ((fd = open("accion_form_ok.html", O_RDONLY)) < 0)
+				debug(ERROR, "system call", "open", 0);
+		}
+		else {
+			if ((fd = open("accion_form_ko.html", O_RDONLY)) < 0)
+				debug(ERROR, "system call", "open", 0);
 		}
 
-        	buffer[bytes_leidos] = '\0';
+            	// Enviar respuesta y cerrar el fichero
+		response(fd, OK, descriptorFichero, "text/html");
+		return;
+	}
 
-        	for (long i = 0; i < bytes_leidos; i++) {
-            		if (buffer[i] == '\r' || buffer[i] == '\n')
-                		buffer[i] = '#';
-        	}
+	else if (req->method == GET) {
 
-		/* Comprobar si la petición es válida */
-        	if (!is_valid_request(buffer)) {
-            		response(NOFILE, BADREQUEST, descriptorFichero, "text/html");
-           	 	break;
-        	}
+		//
+		// Como se trata el caso excepcional de la URL que no apunta a ningún
+		// fichero html
+		//
 
-		/* Parsear la petición para obtener método y path solicitado */
-		struct Request *req = parse_request(buffer);
+		if (strcmp(req->path, "/") == 0) {
 
-		if (req->method == UNSUPPORTED)
-			response(NOFILE, METHODNOTALLOWED, descriptorFichero, "text/html");
+			if ((fd = open("index.html", O_RDONLY)) < 0)
+				debug(ERROR, "system call", "open", 0);
+			response(fd, OK, descriptorFichero, "text/html");
+			return;
 	
-		/* POST */
-		if (req->method == POST) {
-			/* Cadena que contiene el email ("email=jose@um.es") */
-			char *email = strstr(buffer, "email=");
-			/* Sacamos únicamente el email */
-			char *only_email = strremove(email, "email=");
+		} else {
 
-			/* Comprobar mi email con el introducido en el formulario */
-			int fd_form;
-			if (strcmp(EMAIL, only_email) == 0) {
-				if ((fd_form = open("accion_form_ok.html", O_RDONLY)) < 0)
-					debug(ERROR, "system call", "open", 0);
+			//
+			// Cómo se trata el caso de acceso ilegal a directorios superiores
+			// de la jerarquía de directorios del sistema
+			//
+
+			if (is_forbidden(req->path)) {
+				response(NOFILE, PROHIBIDO, descriptorFichero, "text/html");
+				return;
 			}
+			
 			else {
-				if ((fd_form = open("accion_form_ko.html", O_RDONLY)) < 0)
-					debug(ERROR, "system call", "open", 0);
-			}
 
-            		/* Enviar respuesta y cerrar el fichero */
-			response(fd_form, OK, descriptorFichero, "text/html");
-            		close(fd_form);
-		}
-		/* GET */
-		else if (req->method == GET) {
-			int fd;
+				//
+				// Evaluar el tipo de fichero que se está solicitando, y actuar en
+				// consecuencia devolviéndolo si se soporta y devolviendo el error
+				// correspondiente en otro caso
+				//
+					
+				char *extension = strrchr(req->path, '.');
 
-			/* Ruta absoluta, página principal */
-			if (strcmp(req->path, "/") == 0) {
+				//
+				// Si el fichero solicitado no tiene extensión devolvemos el error correspondiente
+				//
+				
+				if (!extension) {
+					response(NOFILE, BADREQUEST, descriptorFichero, "text/html");
+					return;
+				}
+				
+				else {
+					
+					//
+					// Comprobamos si la extensión que tiene el fichero solicitado está soportada
+					// y devolvemos un error si no lo está
+					//
+					
+					char *filetype = ext_to_filetype(extension);
 
-				if ((fd = open("index.html", O_RDONLY)) < 0)
-					debug(ERROR, "system call", "open", 0);
-
-				response(fd, OK, descriptorFichero, "text/html");
-
-			} else {
-				/* Comprobar si el usuario tiene permiso para acceder al directorio */
-				if (is_forbidden(req->path) == 0) {
-					/* Obtener la extensión del fichero solicitado */
-					char *extension = strrchr(req->path, '.');
-
-					if (!extension) 
-						response(NOFILE, BADREQUEST, descriptorFichero, "text/html");
+					if (!filetype) {
+						response(NOFILE, UNSUPPORTEDMEDIATYPE, descriptorFichero, "text/html");
+						return;
+					}
+					
 					else {
-						/* Obtener el tipo de fichero */
-						char *filetype = _ext_to_filetype(extension);
-						if (!filetype) 
-							response(NOFILE, UNSUPPORTEDMEDIATYPE, descriptorFichero, "text/html");
-						else {
-							if ((fd = open(req->path + 1, O_RDONLY)) < 0)
-								response(NOFILE, NOENCONTRADO, descriptorFichero, "text/html");
-							else
-								response(fd, OK, descriptorFichero, filetype);
-						}
-					}	
-				} else 
-					response(NOFILE, PROHIBIDO, descriptorFichero, "text/html");
+						
+						//
+						// En caso de que el fichero sea soportado, exista, etc. se envía el fichero con la
+						// cabecera correspondiente, y el envio del fichero se hace en bloques de un máximo
+						// de 8kB
+						//
+
+						if ((fd = open(req->path + 1, O_RDONLY)) < 0)
+							response(NOFILE, NOENCONTRADO, descriptorFichero, "text/html");
+						else
+							response(fd, OK, descriptorFichero, filetype);
+						return;
+					}
+				}	
 			}
-            		close(fd);
 		}
-    }
-    close(descriptorFichero);
-    exit(1);
+	}	
+	close(descriptorFichero);
+    	exit(1);
 }
 
 int main(int argc, char **argv)
@@ -539,7 +798,29 @@ int main(int argc, char **argv)
 		else {
 			if (pid == 0) { // Proceso hijo
 				(void)close(listenfd);
-				process_web_request(socketfd); // El hijo termina tras llamar a esta función
+		
+				//
+				// Mecanismo de persistencia HTTP. La conexión TCP se cerrará
+				// si no se reciben nuevas peticiones en un período fijado por
+				// el usuario (en este caso, 'SEGS_SIN_PETICIONES' = 10)
+				//
+		
+				fd_set rfds;
+				struct timeval tv;
+				int retval = 1;
+				
+				while (retval) {
+					FD_ZERO(&rfds);
+					FD_SET(socketfd, &rfds);
+
+					tv.tv_sec = SEGS_SIN_PETICIONES;
+					tv.tv_usec = 0;
+
+					retval = select(socketfd + 1, &rfds, NULL, NULL, &tv);
+
+					(retval ? process_web_request(socketfd) : (void)close(socketfd));
+				}
+
 			} else { // Proceso padre
 				(void)close(socketfd);
 			}
