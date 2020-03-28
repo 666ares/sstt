@@ -17,13 +17,9 @@
 #define BUFSIZE			8096
 #define ERROR			42
 #define LOG			44
-#define	OK 			200
 #define BADREQUEST	    	400
 #define PROHIBIDO		403
 #define NOENCONTRADO		404
-#define METHODNOTALLOWED	405
-#define UNSUPPORTEDMEDIATYPE	415
-#define NOFILE			0
 #define SEGS_SIN_PETICIONES	10
 #define DATESIZE		128
 
@@ -358,17 +354,17 @@ response(int fd_fichero, int fd_escritura,
 
     	// Construimos la respuesta
 	sprintf(response, "%s\r\n"
-                      "Server: web.sstt5819.org\r\n"
-				  	  "Date: %s\r\n"
-				  	  "Connection: keep-alive\r\n"
-				  	  "Keep-Alive: timeout=10\r\n"
-  				  	  "Content-Length: %ld\r\n"
-				  	  "Content-Type: %s\r\n"
-				  	  "\r\n",
-                      peticion,
-				  	  date, 
-				  	  response_size(fd_fichero),
-				 	  filetype);
+                      	  "Server: web.sstt5819.org\r\n"
+			  "Date: %s\r\n"
+			  "Connection: keep-alive\r\n"
+			  "Keep-Alive: timeout=10\r\n"
+  			  "Content-Length: %ld\r\n"
+			  "Content-Type: %s\r\n"
+			  "\r\n",
+                          peticion,
+			  date, 
+			  response_size(fd_fichero),
+		 	  filetype);
 	
     	// Escribir respuesta en el descriptor
 	(void)write(fd_escritura, response, strlen(response));
@@ -379,7 +375,7 @@ response(int fd_fichero, int fd_escritura,
 	while ((bytes_leidos = read(fd_fichero, &response, BUFSIZE)) > 0)
 		(void)write(fd_escritura, response, bytes_leidos);
 
-	// Cerrar formulario
+	// Cerrar fichero
 	(void)close(fd_fichero);
 }
 
