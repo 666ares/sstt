@@ -352,24 +352,24 @@ response(int fd_fichero, int fd_escritura,
 	// Construimos la fecha
 	parse_date(date);
 
-    	// Construimos la respuesta
+    // Construimos la respuesta
 	sprintf(response, "%s\r\n"
-                      	  "Server: web.sstt5819.org\r\n"
-			  "Date: %s\r\n"
-			  "Connection: keep-alive\r\n"
-			  "Keep-Alive: timeout=10\r\n"
-  			  "Content-Length: %ld\r\n"
-			  "Content-Type: %s\r\n"
-			  "\r\n",
-                          peticion,
-			  date, 
-			  response_size(fd_fichero),
-		 	  filetype);
+                      "Server: web.sstt5819.org\r\n"
+			  		  "Date: %s\r\n"
+			  		  "Connection: keep-alive\r\n"
+					  "Keep-Alive: timeout=10\r\n"
+					  "Content-Length: %ld\r\n"
+					  "Content-Type: %s\r\n"
+					  "\r\n",
+					  peticion,
+					  date, 
+					  response_size(fd_fichero),
+					  filetype);
 	
-    	// Escribir respuesta en el descriptor
+    // Escribir respuesta en el descriptor
 	(void)write(fd_escritura, response, strlen(response));
 
-    	// Escribir en el descriptor el contenido del fichero en bloques de
+    // Escribir en el descriptor el contenido del fichero en bloques de
 	// como máximo 8 kB
 	int bytes_leidos;
 	while ((bytes_leidos = read(fd_fichero, &response, BUFSIZE)) > 0)
@@ -433,10 +433,10 @@ process_web_request(int descriptorFichero)
 	//
 	
 	char 	buffer[BUFSIZE + 1] = {0};	// Buffer donde se almacena la petición recibida
-	struct 	Request *req;			// Estructura donde guardar los distintos campos de la petición
-	long 	bytes_leidos;			// Bytes leídos de la petición
-	long 	indice;				// Variable auxiliar para recorrer el buffer
-	int 	fd;				// Descriptor para abrir los html
+	struct 	Request *req;				// Estructura donde guardar los distintos campos de la petición
+	long 	bytes_leidos;				// Bytes leídos de la petición
+	long 	indice;						// Variable auxiliar para recorrer el buffer
+	int 	fd;							// Descriptor para abrir los html
 	
 	//
 	// Leer la petición HTTP
@@ -478,10 +478,12 @@ process_web_request(int descriptorFichero)
 	//
         
 	if (!is_valid_request(buffer)) {
+		
             abrir_fichero(&fd, "formularios/400.html");        
             response(fd, descriptorFichero, "HTTP/1.1 400 Bad Request", "text/html");
             debug(LOG, "Error en la petición, no es válida", buffer, 0);
 		    return;
+		
 	}
 
 	// 
@@ -497,10 +499,12 @@ process_web_request(int descriptorFichero)
 	//
 
 	if (req->method == UNSUPPORTED) {
+		
         abrir_fichero(&fd, "formularios/405.html");
 		response(fd, descriptorFichero, "HTTP/1.1 405 Method Not Allowed", "text/html");
 		debug(LOG, "Error en la petición. Método no soportado", buffer, 0);
 		return;
+		
 	}
 
 	//
@@ -556,9 +560,11 @@ process_web_request(int descriptorFichero)
 			//
 
 			if (is_forbidden(req->path)) {
+				
                 abrir_fichero(&fd, "formularios/403.html");
 				response(fd, descriptorFichero, "HTTP/1.1 403 Forbidden", "text/html");
 				return;
+				
 			}
 			
 			else {
@@ -576,10 +582,12 @@ process_web_request(int descriptorFichero)
 				//
 				
 				if (!extension) {
+					
                     abrir_fichero(&fd, "formularios/400.html");
 					response(fd, descriptorFichero, "HTTP/1.1 400 Bad Request", "text/html");
 					debug(LOG, "Error en la petición", "El fichero solicitado no tiene extensión", 0);
 					return;
+					
 				}
 				
 				else {
@@ -592,10 +600,12 @@ process_web_request(int descriptorFichero)
 					char *filetype = ext_to_filetype(extension);
 
 					if (!filetype) {
+						
                         abrir_fichero(&fd, "formularios/415.html");
 						response(fd, descriptorFichero, "HTTP/1.1 415 Unsupported Media Type", "text/html");	
 						debug(LOG, "Error en la petición", "Extensión no soportada", 0);
 						return;
+						
 					}
 					
 					else {
@@ -607,9 +617,11 @@ process_web_request(int descriptorFichero)
 						//
 
 						if ((fd = open(req->path + 1, O_RDONLY)) < 0) {
+							
                             abrir_fichero(&fd, "formularios/404.html");
 							response(fd, descriptorFichero, "HTTP/1.1 404 Not Found", "text/html");
 							debug(LOG, "Error en la petición. El fichero no existe", req->path, 0);
+							
 						}
 						else {
 							response(fd, descriptorFichero, "HTTP/1.1 200 OK", filetype);
