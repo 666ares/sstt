@@ -478,13 +478,11 @@ process_web_request(int descriptorFichero)
 	// Comprobar si la petición es válida
 	//
         
-	if (!is_valid_request(buffer)) {
-		
-            abrir_fichero(&fd, "formularios/400.html");        
-            response(fd, descriptorFichero, "HTTP/1.1 400 Bad Request", "text/html");
-            debug(LOG, "Error en la petición, no es válida", buffer, 0);
-		    return;
-		
+	if (!is_valid_request(buffer)) {	
+            	abrir_fichero(&fd, "formularios/400.html");        
+            	response(fd, descriptorFichero, "HTTP/1.1 400 Bad Request", "text/html");
+       		debug(LOG, "Error en la petición, no es válida", buffer, 0);
+		return;	
 	}
 
 	// 
@@ -500,12 +498,10 @@ process_web_request(int descriptorFichero)
 	//
 
 	if (req->method == UNSUPPORTED) {
-		
-        abrir_fichero(&fd, "formularios/405.html");
+        	abrir_fichero(&fd, "formularios/405.html");
 		response(fd, descriptorFichero, "HTTP/1.1 405 Method Not Allowed", "text/html");
 		debug(LOG, "Error en la petición. Método no soportado", buffer, 0);
 		return;
-		
 	}
 
 	//
@@ -514,7 +510,7 @@ process_web_request(int descriptorFichero)
 	//
 	
 	if (req->method == POST) {
-
+		
 		//
 		// Obtener el correo que ha introducido el usuario
 		//
@@ -548,11 +544,9 @@ process_web_request(int descriptorFichero)
 		//
 
 		if (strcmp(req->path, "/") == 0) {
-
 			abrir_fichero(&fd, "formularios/index.html");
 			response(fd, descriptorFichero, "HTTP/1.1 200 OK", "text/html");
 			return;
-	
 		} else {
 
 			//
@@ -560,12 +554,10 @@ process_web_request(int descriptorFichero)
 			// de la jerarquía de directorios del sistema
 			//
 
-			if (is_forbidden(req->path)) {
-				
+			if (is_forbidden(req->path)) {		
                 		abrir_fichero(&fd, "formularios/403.html");
 				response(fd, descriptorFichero, "HTTP/1.1 403 Forbidden", "text/html");
-				return;
-				
+				return;		
 			}
 			
 			else {
@@ -582,13 +574,11 @@ process_web_request(int descriptorFichero)
 				// Si el fichero solicitado no tiene extensión devolvemos el error correspondiente
 				//
 				
-				if (!extension) {
-					
+				if (!extension) {			
                     			abrir_fichero(&fd, "formularios/400.html");
 					response(fd, descriptorFichero, "HTTP/1.1 400 Bad Request", "text/html");
 					debug(LOG, "Error en la petición", "El fichero solicitado no tiene extensión", 0);
-					return;
-					
+					return;		
 				}
 				
 				else {
@@ -600,13 +590,11 @@ process_web_request(int descriptorFichero)
 					
 					char *filetype = ext_to_filetype(extension);
 
-					if (!filetype) {
-						
+					if (!filetype) {		
                         			abrir_fichero(&fd, "formularios/415.html");
 						response(fd, descriptorFichero, "HTTP/1.1 415 Unsupported Media Type", "text/html");	
 						debug(LOG, "Error en la petición", "Extensión no soportada", 0);
-						return;
-						
+						return;	
 					}
 					
 					else {
@@ -617,12 +605,10 @@ process_web_request(int descriptorFichero)
 						// de 8kB
 						//
 
-						if ((fd = open(req->path + 1, O_RDONLY)) < 0) {
-							
+						if ((fd = open(req->path + 1, O_RDONLY)) < 0) {		
                             				abrir_fichero(&fd, "formularios/404.html");
 							response(fd, descriptorFichero, "HTTP/1.1 404 Not Found", "text/html");
-							debug(LOG, "Error en la petición. El fichero no existe", req->path, 0);
-							
+							debug(LOG, "Error en la petición. El fichero no existe", req->path, 0);	
 						}
 						else {
 							response(fd, descriptorFichero, "HTTP/1.1 200 OK", filetype);
@@ -716,9 +702,7 @@ int main(int argc, char **argv)
 				(void)close(listenfd);
 		
 				//
-				// Mecanismo de persistencia HTTP. La conexión TCP se cerrará
-				// si no se reciben nuevas peticiones en un período fijado por
-				// el usuario (en este caso, 'SEGS_SIN_PETICIONES' = 10)
+				// Mecanismo de persistencia HTTP.
 				//
 		
 				fd_set rfds;
