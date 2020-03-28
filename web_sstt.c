@@ -347,70 +347,40 @@ abrir_fichero(int *fd, char *fichero)
  */
 
 void 
-response(int fd_form, int status_code, int fd, char *filetype)
+response(int fd_fichero, int fd_escritura,
+         char *peticion, char *filetype)
 {
 	char response[BUFSIZE];	
 	char date[DATESIZE];
-	int bytes_escritos;
-
-    	// Construir cabecera según el status_code
-	switch (status_code) {
-		case OK:
-			bytes_escritos = sprintf(response, "%s", "HTTP/1.1 200 OK\r\n");
-			break;
-
-		case BADREQUEST:
-			bytes_escritos = sprintf(response, "%s", "HTTP/1.1 400 Bad Request\r\n");
-			abrir_fichero(&fd_form, "formularios/400.html");
-			break;
-
-		case NOENCONTRADO:
-			bytes_escritos = sprintf(response, "%s", "HTTP/1.1 404 Not Found\r\n");
-			abrir_fichero(&fd_form, "formularios/404.html");
-			break;
-
-		case PROHIBIDO:
-			bytes_escritos = sprintf(response, "%s", "HTTP/1.1 403 Forbidden\r\n");
-			abrir_fichero(&fd_form, "formularios/403.html");
-			break;
-
-		case UNSUPPORTEDMEDIATYPE:
-			bytes_escritos = sprintf(response, "%s", "HTTP/1.1 415 Unsupported Media Type\r\n");
-			abrir_fichero(&fd_form, "formularios/415.html");
-			break;
-		
-		case METHODNOTALLOWED:
-			bytes_escritos = sprintf(response, "%s", "HTTP/1.1 405 Method Not Allowed\r\n");
-			abrir_fichero(&fd_form, "formularios/405.html");
-			break;
-	}
 
 	// Construimos la fecha
 	parse_date(date);
 
     	// Construimos la respuesta
-	sprintf(response + bytes_escritos, "Server: web.sstt5819.org\r\n"
-				  	   "Date: %s\r\n"
-				  	   "Connection: keep-alive\r\n"
-				  	   "Keep-Alive: timeout=10\r\n"
-  				  	   "Content-Length: %ld\r\n"
-				  	   "Content-Type: %s\r\n"
-				  	   "\r\n",
-				  	   date, 
-				  	   response_size(fd_form),
-				 	   filetype);
+	sprintf(response, "%s\r\n"
+                      "Server: web.sstt5819.org\r\n"
+				  	  "Date: %s\r\n"
+				  	  "Connection: keep-alive\r\n"
+				  	  "Keep-Alive: timeout=10\r\n"
+  				  	  "Content-Length: %ld\r\n"
+				  	  "Content-Type: %s\r\n"
+				  	  "\r\n",
+                      peticion,
+				  	  date, 
+				  	  response_size(fd_fichero),
+				 	  filetype);
 	
     	// Escribir respuesta en el descriptor
-	(void)write(fd, response, strlen(response));
+	(void)write(fd_escritura, response, strlen(response));
 
     	// Escribir en el descriptor el contenido del fichero en bloques de
 	// como máximo 8 kB
 	int bytes_leidos;
-	while ((bytes_leidos = read(fd_form, &response, BUFSIZE)) > 0)
-		(void)write(fd, response, bytes_leidos);
+	while ((bytes_leidos = read(fd_fichero, &response, BUFSIZE)) > 0)
+		(void)write(fd_escritura, response, bytes_leidos);
 
 	// Cerrar formulario
-	(void)close(fd_form);
+	(void)close(fd_fichero);
 }
 
 /*
@@ -512,9 +482,10 @@ process_web_request(int descriptorFichero)
 	//
         
 	if (!is_valid_request(buffer)) {
-        	response(NOFILE, BADREQUEST, descriptorFichero, "text/html");
-		debug(LOG, "Error en la petición, no es válida", buffer, 0);
-		return;
+            abrir_fichero(&fd, "formularios/400.html");        
+            response(fd, descriptorFichero, "HTTP/1.1 400 Bad Request", "text/html");
+            debug(LOG, "Error en la petición, no es válida", buffer, 0);
+		    return;
 	}
 
 	// 
@@ -530,7 +501,8 @@ process_web_request(int descriptorFichero)
 	//
 
 	if (req->method == UNSUPPORTED) {
-		response(NOFILE, METHODNOTALLOWED, descriptorFichero, "text/html");
+        abrir_fichero(&fd, "formularios/405.html");
+		response(fd, descriptorFichero, "HTTP/1.1 405 Method Not Allowed", "text/html");
 		debug(LOG, "Error en la petición. Método no soportado", buffer, 0);
 		return;
 	}
@@ -554,7 +526,7 @@ process_web_request(int descriptorFichero)
 		// html correspondiente en función de si es correcto el correo o no
 		//
 		
-		if (strcmp(EMAIL, only_email))
+		if (!strcmp(EMAIL, only_email))
 			abrir_fichero(&fd, "formularios/correo_bien.html");
 		else	
 			abrir_fichero(&fd, "formularios/correo_mal.html");
@@ -563,7 +535,7 @@ process_web_request(int descriptorFichero)
             	// Enviar respuesta
 		//
 
-		response(fd, OK, descriptorFichero, "text/html");
+		response(fd, descriptorFichero, "HTTP/1.1 200 OK", "text/html");
 		return;
 	}
 
@@ -577,7 +549,7 @@ process_web_request(int descriptorFichero)
 		if (strcmp(req->path, "/") == 0) {
 
 			abrir_fichero(&fd, "formularios/index.html");
-			response(fd, OK, descriptorFichero, "text/html");
+			response(fd, descriptorFichero, "HTTP/1.1 200 OK", "text/html");
 			return;
 	
 		} else {
@@ -588,7 +560,8 @@ process_web_request(int descriptorFichero)
 			//
 
 			if (is_forbidden(req->path)) {
-				response(NOFILE, PROHIBIDO, descriptorFichero, "text/html");
+                abrir_fichero(&fd, "formularios/403.html");
+				response(fd, descriptorFichero, "HTTP/1.1 403 Forbidden", "text/html");
 				return;
 			}
 			
@@ -607,7 +580,8 @@ process_web_request(int descriptorFichero)
 				//
 				
 				if (!extension) {
-					response(NOFILE, BADREQUEST, descriptorFichero, "text/html");
+                    abrir_fichero(&fd, "formularios/400.html");
+					response(fd, descriptorFichero, "HTTP/1.1 400 Bad Request", "text/html");
 					debug(LOG, "Error en la petición", "El fichero solicitado no tiene extensión", 0);
 					return;
 				}
@@ -622,7 +596,8 @@ process_web_request(int descriptorFichero)
 					char *filetype = ext_to_filetype(extension);
 
 					if (!filetype) {
-						response(NOFILE, UNSUPPORTEDMEDIATYPE, descriptorFichero, "text/html");	
+                        abrir_fichero(&fd, "formularios/415.html");
+						response(fd, descriptorFichero, "HTTP/1.1 415 Unsupported Media Type", "text/html");	
 						debug(LOG, "Error en la petición", "Extensión no soportada", 0);
 						return;
 					}
@@ -636,11 +611,12 @@ process_web_request(int descriptorFichero)
 						//
 
 						if ((fd = open(req->path + 1, O_RDONLY)) < 0) {
-							response(NOFILE, NOENCONTRADO, descriptorFichero, "text/html");
+                            abrir_fichero(&fd, "formularios/404.html");
+							response(fd, descriptorFichero, "HTTP/1.1 404 Not Found", "text/html");
 							debug(LOG, "Error en la petición. El fichero no existe", req->path, 0);
 						}
 						else {
-							response(fd, OK, descriptorFichero, filetype);
+							response(fd, descriptorFichero, "HTTP/1.1 200 OK", filetype);
 						}
 						return;
 					}
