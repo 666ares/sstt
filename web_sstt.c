@@ -104,12 +104,12 @@ response_size(int fd)
 {
 	struct stat st;
 	
-	if (fstat(fd, &st) == 0)
-		return st.st_size;
-
+	if (!fstat(fd, &st))
+		return (st.st_size);
+		
 	debug(ERROR, "system call", "fstat", 0);
 	
-	// Never reached
+	/* Nunca llega aquí */
 	return 0;
 }
 
@@ -165,7 +165,7 @@ char
 	// Saltamos el punto que indica que el fichero tiene extensión
 	extension++;
 
-	// El fichero acaba en punto pero no tiene extensión
+	// El fichero acaba en punto pero no tiene extensión	
 	if (!strcmp(extension, "")) {
 		debug(LOG, "Error al obtener la extensión", 
 		      "Fichero sin extensión", 0);
@@ -213,7 +213,8 @@ struct Request
 	// que necesitamos de la petición
 	struct Request *req = NULL;
 	req = malloc(sizeof(struct Request));
-	if (!req) return NULL;
+	if (!req) 
+		return NULL;
 	memset(req, 0, sizeof(struct Request));
 
 	// Parseamos el método de la petición
@@ -352,25 +353,25 @@ response(int fd_fichero, int fd_escritura,
 	// Construimos la fecha
 	parse_date(date);
 
-    // Construimos la respuesta
+    	// Construimos la respuesta
 	sprintf(response, "%s\r\n"
-                      "Server: web.sstt5819.org\r\n"
-			  		  "Date: %s\r\n"
-			  		  "Connection: keep-alive\r\n"
-					  "Keep-Alive: timeout=10\r\n"
-					  "Content-Length: %ld\r\n"
-					  "Content-Type: %s\r\n"
-					  "\r\n",
-					  peticion,
-					  date, 
-					  response_size(fd_fichero),
-					  filetype);
+                      	  "Server: web.sstt5819.org\r\n"
+			  "Date: %s\r\n"
+			  "Connection: keep-alive\r\n"
+			  "Keep-Alive: timeout=10\r\n"
+			  "Content-Length: %ld\r\n"
+			  "Content-Type: %s\r\n"
+			  "\r\n",
+			  peticion, 
+			  date, 
+			  response_size(fd_fichero),
+			  filetype);
 	
-    // Escribir respuesta en el descriptor
+    	// Escribir respuesta en el descriptor
 	(void)write(fd_escritura, response, strlen(response));
 
-    // Escribir en el descriptor el contenido del fichero en bloques de
-	// como máximo 8 kB
+    	// Escribir en el descriptor el contenido del fichero
+	// en bloques de como máximo 8 kB
 	int bytes_leidos;
 	while ((bytes_leidos = read(fd_fichero, &response, BUFSIZE)) > 0)
 		(void)write(fd_escritura, response, bytes_leidos);
@@ -396,7 +397,7 @@ is_forbidden(char *path)
 	// Si se encuentra ls subcadena '../' (acceso a un directorio
 	// superior) o la petición comienza por '/' (ruta absoluta)
 
-	if (strstr(buffer, "../") != NULL || buffer[1] == '/') 
+	if (strstr(buffer, "../") != NULL || buffer[1] == '/')
 		return 1;
 
 	return 0;
@@ -433,10 +434,10 @@ process_web_request(int descriptorFichero)
 	//
 	
 	char 	buffer[BUFSIZE + 1] = {0};	// Buffer donde se almacena la petición recibida
-	struct 	Request *req;				// Estructura donde guardar los distintos campos de la petición
-	long 	bytes_leidos;				// Bytes leídos de la petición
-	long 	indice;						// Variable auxiliar para recorrer el buffer
-	int 	fd;							// Descriptor para abrir los html
+	struct 	Request *req;			// Estructura donde guardar los distintos campos de la petición
+	long 	bytes_leidos;			// Bytes leídos de la petición
+	long 	indice;				// Variable auxiliar para recorrer el buffer
+	int 	fd;				// Descriptor para abrir los html
 	
 	//
 	// Leer la petición HTTP
