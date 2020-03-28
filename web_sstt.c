@@ -17,22 +17,23 @@
 #define BUFSIZE			8096
 #define ERROR			42
 #define LOG			44
-
 #define	OK 			200
 #define BADREQUEST	    	400
 #define PROHIBIDO		403
 #define NOENCONTRADO		404
 #define METHODNOTALLOWED	405
 #define UNSUPPORTEDMEDIATYPE	415
-
 #define NOFILE			0
-
 #define SEGS_SIN_PETICIONES	10
-#define DATE_SIZE		128
+#define DATESIZE		128
 
 static const char *EMAIL = "joseantonio.pastorv%40um.es";
 
-typedef enum Method {GET, POST, UNSUPPORTED} Method;
+typedef enum Method {
+	GET, 
+	POST, 
+	UNSUPPORTED
+} Method;
 
 typedef struct Request {
 	enum Method method;
@@ -43,17 +44,18 @@ struct {
 	char *ext;
 	char *filetype;
 } extensions [] = {
-	{"gif", "image/gif" },
-	{"jpg", "image/jpg" },
-	{"jpeg","image/jpeg"},
-	{"png", "image/png" },
-	{"ico", "image/ico" },
-	{"zip", "image/zip" },
-	{"gz",  "image/gz"  },
-	{"tar", "image/tar" },
-	{"htm", "text/html" },
-	{"html","text/html" },
-	{0,0} };
+	{"gif",  "image/gif" },
+	{"jpg",  "image/jpg" },
+	{"jpeg", "image/jpeg"},
+	{"png",  "image/png" },
+	{"ico",  "image/ico" },
+	{"zip",  "image/zip" },
+	{"gz",   "image/gz"  },
+	{"tar",  "image/tar" },
+	{"htm",  "text/html" },
+	{"html", "text/html" },
+	{0,      0} 
+};
 
 void 
 debug(int log_message_type, char *message, char *additional_info, 
@@ -63,7 +65,6 @@ debug(int log_message_type, char *message, char *additional_info,
 	char logbuffer[BUFSIZE * 2];
 	
 	switch (log_message_type) {
-
 		case ERROR: 
 			(void)sprintf(logbuffer,"ERROR: [%s] [%s] [errno = %d] [exiting pid = %d]",
 					message, additional_info, errno, getpid());
@@ -120,9 +121,6 @@ response_size(int fd)
  * Genera la fecha actual en el formato necesario para una
  * respuesta HTTP.
  * @param 'date' cadena donde almacenar la fecha actual.
- *
- * Referencia:
- * stackoverflow.com/questions/7548759/generate-a-date-string-in-http-response-date-format-in-c/7548846
  */
 
 void
@@ -130,7 +128,7 @@ parse_date(char *date)
 {
 	time_t now = time(0);
 	struct tm tm = *gmtime(&now);
-	strftime(date, DATE_SIZE, "%a, %d, %b %Y %H:%M:%S %Z", &tm);
+	strftime(date, DATESIZE, "%a, %d, %b %Y %H:%M:%S %Z", &tm);
 }
 
 /* 
@@ -138,9 +136,6 @@ parse_date(char *date)
  * @param 'str' cadena de la que se desean eliminar las subcadenas.
  * @param 'sub' subcadena que se desea eliminar de 'str'
  * @return 'str' con las ocurrencias de 'sub' eliminadas.
- *
- * Referencia:
- * stackoverflow.com/questions/47116974/remove-a-substring-from-a-string-in-c
  */
 
 char
@@ -176,7 +171,8 @@ char
 
 	// El fichero acaba en punto pero no tiene extensión
 	if (!strcmp(extension, "")) {
-		debug(LOG, "Error al obtener la extensión", "Fichero sin extensión", 0);
+		debug(LOG, "Error al obtener la extensión", 
+		      "Fichero sin extensión", 0);
 		return NULL;
 	}
 
@@ -246,7 +242,6 @@ struct Request
 
 	memcpy(req->path, raw_request, path_len);
 	req->path[path_len] = '\0';
-
 	return req;
 }
 
@@ -282,7 +277,7 @@ compile_and_execute_regex(int _pmatch, int _nmatch,
 		if (!match)			is_valid = 1;
 		else if (match == REG_NOMATCH)	is_valid = 0;
 	}
-
+	
 	return is_valid;
 }
 
@@ -296,19 +291,16 @@ compile_and_execute_regex(int _pmatch, int _nmatch,
 int
 is_valid_request(char request[])
 {
-	// Usamos 'strdup' para crear una copia del buffer y poder modificarlo
-	// con strtok
+	// 'strdup' para crear una copia modificable del buffer
+	// ('strtok' necesitará modificarlo después)
 	char *request_copy = strdup(request);
 
-	// Expresiones regulares para validar la primera, el resto de cabeceras
-	// y la query de la petición POST que contiene el correo electrónico
 	const char *main_header_regex 	= "^([A-Za-z]+)(\\s+)(/.*)(\\s+)(HTTP/1.1)";
 	const char *other_headers_regex = "^(.*)(:)(\\s+)(.*)";
     	const char *email_query_regex 	= "^(.*)(=)(.*)";
 
 	// Comprobamos la primera línea de la petición
 	char *token = strtok(request_copy, "##");
-
 	if (!compile_and_execute_regex(6, 6, token, main_header_regex)) 
 		return 0;
 
@@ -317,8 +309,6 @@ is_valid_request(char request[])
 		// Obtenemos la siguiente cabecera
 		token = strtok(NULL, "##");
 		if (token != NULL) {
-			// Comprobamos si se trata de la query de una petición POST que
-			// contiene el correo o no
             		if (strstr(token, "email=") != NULL) {
                 		if (!compile_and_execute_regex(4, 4, token, email_query_regex))
                     			return 0;
@@ -330,11 +320,8 @@ is_valid_request(char request[])
         	}
 	}
 	
-	//
-	// Liberamos el buffer donde hemos copiado la petición y devolvemos
-	// '1' indicando que la petición es válida
 	free(request_copy);
-	return 1;
+	return 1; // Peición válida
 }
 
 /*
@@ -362,9 +349,9 @@ abrir_fichero(int *fd, char *fichero)
 void 
 response(int fd_form, int status_code, int fd, char *filetype)
 {
-	char response[BUFSIZE];		// Buffer donde se almacena la respuesta HTTP
-	char date[DATE_SIZE];		// Buffer donde se almacena la fecha
-	int bytes_escritos;		// Número de bytes que ocupa la primera cabecera 
+	char response[BUFSIZE];	
+	char date[DATESIZE];
+	int bytes_escritos;
 
     	// Construir cabecera según el status_code
 	switch (status_code) {
