@@ -17,7 +17,6 @@
 #define BUFSIZE			8096
 #define ERROR			42
 #define LOG			44
-#define BADREQUEST	    	400
 #define PROHIBIDO		403
 #define NOENCONTRADO		404
 #define SEGS_SIN_PETICIONES	10
