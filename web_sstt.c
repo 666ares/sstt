@@ -643,6 +643,11 @@ int main(int argc, char **argv)
 	//  Verficiar que los argumentos que se pasan al iniciar el programa
 	//  son los esperados
 	//
+	
+	if (argv[1] == NULL || argv[2] == NULL) {
+		(void)printf("ERROR: Argumentos no especificados. Uso: ./web_sstt <puerto> <directorio>\n");
+		exit(4);
+	}
 
 	//
 	//  Verficiar que el directorio escogido es apto. Que no es un
@@ -683,8 +688,8 @@ int main(int argc, char **argv)
 	if (listen(listenfd, 64) < 0)
 		debug(ERROR, "system call", "listen", 0);
 	
-	printf("\n -> Servidor Web iniciado en el puerto %d.\n", port);
-	printf(" -> Dirección: web.sstt5819.org | 192.168.56.101\n");
+	(void)printf("\n -> Servidor Web iniciado en el puerto %d.\n", port);
+	(void)printf(" -> Dirección: web.sstt5819.org | 192.168.56.101\n");
 	
 	while(1) {
 
