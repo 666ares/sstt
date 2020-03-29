@@ -92,17 +92,17 @@ debug(int log_message_type, char *message, char *additional_info,
 }
 
 /*
- * Devuelve el tamaño del fichero asociado al descriptor pasado como
- * argumento en bytes.
+ * Devuelve el tamaño del fichero asociado al descriptor
+ * pasado como argumento en bytes.
  * @param 'fd' descriptor del fichero.
- * @return tamaño total del fichero asociado al descriptor (en bytes).
+ * @return tamaño total del fichero asociado al descriptor
+ * (en bytes).
  */
 
 long int
 response_size(int fd)
 {
 	struct stat st;
-	
 	if (!fstat(fd, &st))
 		return (st.st_size);
 		
@@ -113,8 +113,8 @@ response_size(int fd)
 }
 
 /*
- * Genera la fecha actual en el formato necesario para una
- * respuesta HTTP.
+ * Genera la fecha actual en el formato necesario para
+ * una respuesta HTTP.
  * @param 'date' cadena donde almacenar la fecha actual.
  */
 
@@ -161,15 +161,12 @@ char
 char
 *ext_to_filetype(char *extension)
 {
-	// Saltamos el punto que indica que el fichero tiene extensión
+	// Saltamos el punto
 	extension++;
 
 	// El fichero acaba en punto pero no tiene extensión	
-	if (!strcmp(extension, "")) {
-		debug(LOG, "Error al obtener la extensión", 
-		      "Fichero sin extensión", 0);
+	if (!strcmp(extension, ""))
 		return NULL;
-	}
 
 	// Devolvemos el tipo de fichero
 	for (int i = 0; extensions[i].ext != 0; i++) {
@@ -182,9 +179,10 @@ char
 }
 
 /*
- * Libera la memoria asociada a una estructura de tipo Request.
- * @param 'req' puntero a una estructura que contiene los distintos
- * campos de la petición.
+ * Libera la memoria asociada a una estructura de
+ * tipo Request.
+ * @param 'req' puntero a una estructura que
+ * contiene los distintos campos de la petición.
  */
 
 void
@@ -195,11 +193,12 @@ free_request(struct Request *req)
 }
 
 /*
- * Parsea la petición HTTP almacenada en el buffer pasado como argumento.
- * @param 'raw_request' array que contiene la petición HTTP leída
- * del socket.
- * @return estructura de tipo Request con los distintos campos de
- * la petición.
+ * Parsea la petición HTTP almacenada en el buffer
+ * pasado como argumento.
+ * @param 'raw_request' array que contiene la petición
+ * HTTP leída del socket.
+ * @return estructura de tipo Request con los distintos
+ * campos de la petición.
  */
 
 struct Request
@@ -208,15 +207,13 @@ struct Request
 	#define S_GET	"GET"
 	#define S_POST	"POST"
 
-	// Creamos la estructura que almacenará los datos
-	// que necesitamos de la petición
 	struct Request *req = NULL;
 	req = malloc(sizeof(struct Request));
 	if (!req) 
 		return NULL;
 	memset(req, 0, sizeof(struct Request));
 
-	// Parseamos el método de la petición
+	// Parseamos el método
 	size_t method_len = strcspn(raw_request, " ");
 	if (strncmp(raw_request, S_GET, sizeof S_GET - 1) == 0)
 		req->method = GET;
@@ -225,7 +222,7 @@ struct Request
 	else
 		req->method = UNSUPPORTED;
 
-	// Saltamos el espacio después del nombre del método
+	// Saltamos el espacio entre  el método y la ruta
 	raw_request += method_len + 1;
 
 	// Parseamos la ruta del fichero solicitado
@@ -278,10 +275,11 @@ compile_and_execute_regex(int _pmatch, int _nmatch,
 }
 
 /*
- * Comprueba si la petición HTTP almacenada en el buffer pasado como argumento es
- * válida o no.
+ * Comprueba si la petición HTTP almacenada en el buffer
+ * pasado como argumento es válida o no.
  * @param 'request' array con la petición HTTP
- * @return '0' si la petición no es válida, '1' si sí lo es
+ * @return '0' si la petición no es válida, '1' en caso
+ * contrario.
  */
 
 int
@@ -317,7 +315,7 @@ is_valid_request(char request[])
 	}
 	
 	free(request_copy);
-	return 1; // Peición válida
+	return 1; // Petición válida
 }
 
 /*
@@ -334,11 +332,13 @@ abrir_fichero(int *fd, char *fichero)
 }
 
 /*
- * Genera una respuesta para la petición HTTP de acuerdo al código
- * pasado como argumento.
- * @param 'fd_form' descriptor del fichero html que se enviará.
- * @param 'status_code' código de respuesta a la petición.
- * @param 'fd' descriptor donde escribir la respuesta.
+ * Genera una respuesta para la petición HTTP de acuerdo
+ * al código pasado como argumento y la envía al cliente.
+ * @param 'fd_fichero' descriptor del fichero que se enviará.
+ * @param 'fd_escritura' descriptor por donde se enviará la
+ * respuesta y el contenido del fichero.
+ * @param 'peticion' cadena que contiene la petición según
+ * el tipo de mensaje.
  * @param 'filetype' tipo del fichero que se va a mandar
  */
 
@@ -348,6 +348,7 @@ response(int fd_fichero, int fd_escritura,
 {
 	char response[BUFSIZE];	
 	char date[DATESIZE];
+	int ret;
 
 	// Construimos la fecha
 	parse_date(date);
@@ -371,9 +372,8 @@ response(int fd_fichero, int fd_escritura,
 
     	// Escribir en el descriptor el contenido del fichero
 	// en bloques de como máximo 8 kB
-	int bytes_leidos;
-	while ((bytes_leidos = read(fd_fichero, &response, BUFSIZE)) > 0)
-		(void)write(fd_escritura, response, bytes_leidos);
+	while ((ret = read(fd_fichero, &response, BUFSIZE)) > 0)
+		(void)write(fd_escritura, response, ret);
 
 	// Cerrar fichero
 	(void)close(fd_fichero);
@@ -705,10 +705,7 @@ int main(int argc, char **argv)
 			if (pid == 0) { // Proceso hijo
 				(void)close(listenfd);
 		
-				//
 				// Mecanismo de persistencia HTTP.
-				//
-		
 				fd_set rfds;
 				struct timeval tv;
 				int retval = 1;
@@ -716,12 +713,9 @@ int main(int argc, char **argv)
 				while (retval) {
 					FD_ZERO(&rfds);
 					FD_SET(socketfd, &rfds);
-
 					tv.tv_sec = SEGS_SIN_PETICIONES;
 					tv.tv_usec = 0;
-
 					retval = select(socketfd + 1, &rfds, NULL, NULL, &tv);
-
 					(retval ? process_web_request(socketfd) : (void)close(socketfd));
 				}
 
