@@ -396,7 +396,7 @@ is_forbidden(char *path)
 	// Si se encuentra ls subcadena '../' (acceso a un directorio
 	// superior) o la petición comienza por '/' (ruta absoluta)
 
-	if (strstr(buffer, "../") != NULL || buffer[1] == '/')
+	if (strstr(buffer, "../") != NULL/* || buffer[1] == '/'*/)
 		return 1;
 
 	return 0;
