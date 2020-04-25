@@ -24,6 +24,8 @@
 
 static const char *EMAIL = "joseantonio.pastorv%40um.es";
 
+static int valor_cookie = 0;
+
 typedef enum Method {
 	GET, 
 	POST, 
@@ -357,13 +359,15 @@ response(int fd_fichero, int fd_escritura,
 	sprintf(response, "%s\r\n"
                       	  "Server: web.sstt5819.org\r\n"
 			  "Date: %s\r\n"
+              "Set-Cookie: cookie_counter=%d; Max-Age=120\r\n"
 			  "Connection: keep-alive\r\n"
-			  "Keep-Alive: timeout=10\r\n"
+			  "Keep-Alive: timeout=10, max=5000\r\n"
 			  "Content-Length: %ld\r\n"
 			  "Content-Type: %s\r\n"
 			  "\r\n",
 			  peticion, 
-			  date, 
+			  date,
+              valor_cookie + 1, 
 			  response_size(fd_fichero),
 			  filetype);
 	
@@ -436,7 +440,7 @@ process_web_request(int descriptorFichero)
 	long 	bytes_leidos;			// Bytes leídos de la petición
 	long 	indice;				// Variable auxiliar para recorrer el buffer
 	int 	fd;				// Descriptor para abrir los html
-	
+
 	//
 	// Leer la petición HTTP
 	//
@@ -501,6 +505,23 @@ process_web_request(int descriptorFichero)
 		debug(LOG, "Error en la petición. Método no soportado", buffer, 0);
 		return;
 	}
+
+    //
+    // Gestión de cookies
+    //
+
+    char *match = "Cookie: cookie_counter=";
+    char *contains_cookie = strstr(buffer, match);
+
+    if (contains_cookie) {
+        valor_cookie = (int) strtol (&contains_cookie[strlen(match)], (char **)NULL, 10);
+        if (valor_cookie >= 10) {
+            abrir_fichero(&fd, "formularios/429.html");
+            response(fd, descriptorFichero, "HTTP/1.1 429 Too Many Requests", "text/html");
+            debug(LOG, "Gestión de cookies, máximo de accesos", buffer, 0);
+            exit(3);
+        }
+    }
 
 	//
 	// TRATAR LOS CASOS DE LOS DIFERENTES MÉTODOS QUE SE USAN
@@ -715,7 +736,7 @@ int main(int argc, char **argv)
 					tv.tv_sec = SEGS_SIN_PETICIONES;
 					tv.tv_usec = 0;
 					retval = select(socketfd + 1, &rfds, NULL, NULL, &tv);
-					(retval ? process_web_request(socketfd) : (void)close(socketfd));
+                    (retval ? process_web_request(socketfd) : (void)close(socketfd));
 				}
 
 			} else { // Proceso padre
