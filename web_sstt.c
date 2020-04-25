@@ -359,7 +359,7 @@ response(int fd_fichero, int fd_escritura,
 	sprintf(response, "%s\r\n"
                       	  "Server: web.sstt5819.org\r\n"
 			  "Date: %s\r\n"
-              "Set-Cookie: cookie_counter=%d; Max-Age=120\r\n"
+              		  "Set-Cookie: cookie_counter=%d; Max-Age=120\r\n"
 			  "Connection: keep-alive\r\n"
 			  "Keep-Alive: timeout=10, max=5000\r\n"
 			  "Content-Length: %ld\r\n"
@@ -367,7 +367,7 @@ response(int fd_fichero, int fd_escritura,
 			  "\r\n",
 			  peticion, 
 			  date,
-              valor_cookie + 1, 
+              		  valor_cookie, 
 			  response_size(fd_fichero),
 			  filetype);
 	
@@ -516,11 +516,13 @@ process_web_request(int descriptorFichero)
     if (contains_cookie) {
         valor_cookie = (int) strtol (&contains_cookie[strlen(match)], (char **)NULL, 10);
         if (valor_cookie >= 10) {
-            abrir_fichero(&fd, "formularios/429.html");
+        	abrir_fichero(&fd, "formularios/429.html");
             response(fd, descriptorFichero, "HTTP/1.1 429 Too Many Requests", "text/html");
             debug(LOG, "Gestión de cookies, máximo de accesos", buffer, 0);
             exit(3);
-        }
+		} else {
+			valor_cookie++;
+		}
     }
 
 	//
