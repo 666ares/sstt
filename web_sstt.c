@@ -93,14 +93,6 @@ debug(int log_message_type, char *message, char *additional_info,
 		exit(3);
 }
 
-/*
- * Devuelve el tamaño del fichero asociado al descriptor
- * pasado como argumento en bytes.
- * @param 'fd' descriptor del fichero.
- * @return tamaño total del fichero asociado al descriptor
- * (en bytes).
- */
-
 long int
 response_size(int fd)
 {
@@ -114,12 +106,6 @@ response_size(int fd)
 	return 0;
 }
 
-/*
- * Genera la fecha actual en el formato necesario para
- * una respuesta HTTP.
- * @param 'date' cadena donde almacenar la fecha actual.
- */
-
 void
 parse_date(char *date)
 {
@@ -127,13 +113,6 @@ parse_date(char *date)
 	struct tm tm = *gmtime(&now);
 	strftime(date, DATESIZE, "%a, %d, %b %Y %H:%M:%S %Z", &tm);
 }
-
-/* 
- * Elimina todas las subcadenas 'sub' presentes en la cadena 'str'.
- * @param 'str' cadena de la que se desean eliminar las subcadenas.
- * @param 'sub' subcadena que se desea eliminar de 'str'
- * @return 'str' con las ocurrencias de 'sub' eliminadas.
- */
 
 char
 *strremove(char *str, const char *sub)
@@ -150,15 +129,6 @@ char
 	}
 	return str;
 }
-
-/*
- * Comprueba si la extensión pasada como argumento está
- * soportada por el servidor.
- * @param 'extension' extensión del archivo solicitado.
- * @return 'NULL' si el fichero no tiene extensión o no
- * está soportada, en otro caso, devuelve el tipo de
- * archivo asociado a esa extensión.
- */
 
 char
 *ext_to_filetype(char *extension)
@@ -180,28 +150,12 @@ char
 	return NULL;
 }
 
-/*
- * Libera la memoria asociada a una estructura de
- * tipo Request.
- * @param 'req' puntero a una estructura que
- * contiene los distintos campos de la petición.
- */
-
 void
 free_request(struct Request *req)
 {
 	free(req->path);
 	free(req);
 }
-
-/*
- * Parsea la petición HTTP almacenada en el buffer
- * pasado como argumento.
- * @param 'raw_request' array que contiene la petición
- * HTTP leída del socket.
- * @return estructura de tipo Request con los distintos
- * campos de la petición.
- */
 
 struct Request
 *parse_request(char raw_request[])
@@ -224,6 +178,9 @@ struct Request
 	else
 		req->method = UNSUPPORTED;
 
+	#undef S_GET
+	#undef S_POST
+	
 	// Saltamos el espacio entre  el método y la ruta
 	raw_request += method_len + 1;
 
@@ -239,18 +196,6 @@ struct Request
 	req->path[path_len] = '\0';
 	return req;
 }
-
-/*
- * Compila la expresión regular pasada como argumento y comprueba si
- * hace 'match' con el token también pasado como argumento.
- * @param '_pmatch' tamaño del array donde guardar cada uno de los
- * grupos de la expresión regular
- * @param '_nmatch' número de grupos que deben hacer match
- * @param 'token' cadena sobre la que aplicar la expresión regular
- * @param 'regex' expresión regular
- * @return '1' si la expresión regular hace match, '0' si el token
- * no coincide.
- */
 
 int
 compile_and_execute_regex(int _pmatch, int _nmatch, 
@@ -275,14 +220,6 @@ compile_and_execute_regex(int _pmatch, int _nmatch,
 	
 	return is_valid;
 }
-
-/*
- * Comprueba si la petición HTTP almacenada en el buffer
- * pasado como argumento es válida o no.
- * @param 'request' array con la petición HTTP
- * @return '0' si la petición no es válida, '1' en caso
- * contrario.
- */
 
 int
 is_valid_request(char request[])
@@ -320,29 +257,12 @@ is_valid_request(char request[])
 	return 1; // Petición válida
 }
 
-/*
- * Abre el fichero pasado como argumento
- * @param 'fd' descriptor donde se abrirá el fichero
- * @param 'fichero' cadena con el nombre del fichero
- */
-
 void
 abrir_fichero(int *fd, char *fichero)
 {
 	if ((*fd = open(fichero, O_RDONLY)) < 0)
 		debug(ERROR, "system call", "open", 0);
 }
-
-/*
- * Genera una respuesta para la petición HTTP de acuerdo
- * al código pasado como argumento y la envía al cliente.
- * @param 'fd_fichero' descriptor del fichero que se enviará.
- * @param 'fd_escritura' descriptor por donde se enviará la
- * respuesta y el contenido del fichero.
- * @param 'peticion' cadena que contiene la petición según
- * el tipo de mensaje.
- * @param 'filetype' tipo del fichero que se va a mandar
- */
 
 void 
 response(int fd_fichero, int fd_escritura,
@@ -382,14 +302,6 @@ response(int fd_fichero, int fd_escritura,
 	// Cerrar fichero
 	(void)close(fd_fichero);
 }
-
-/*
- * Indica si el usuario tiene permisos para acceder a la ruta pasada
- * como argumento.
- * @param 'path' cadena con la ruta hasta el fichero solicitado.
- * @return '1' si el usuario no tiene permisos para acceder al
- * fichero, '0' en caso contrario.
- */
 
 int
 is_forbidden(char *path) 
