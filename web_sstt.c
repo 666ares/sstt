@@ -24,7 +24,7 @@
 
 static const char *EMAIL = "joseantonio.pastorv%40um.es";
 
-static int valor_cookie = 0;
+int valor_cookie = 0;
 
 typedef enum Method {
 	GET, 
@@ -271,35 +271,36 @@ response(int fd_fichero, int fd_escritura,
 	char response[BUFSIZE];	
 	char date[DATESIZE];
 	int ret;
+    int idx;
+
+    #define TOO_MANY_CODE "429"
 
 	// Construimos la fecha
 	parse_date(date);
 
-    	// Construimos la respuesta
-	sprintf(response, "%s\r\n"
-                      	  "Server: web.sstt5819.org\r\n"
-			  "Date: %s\r\n"
-              		  "Set-Cookie: cookie_counter=%d; Max-Age=120\r\n"
-			  "Connection: keep-alive\r\n"
-			  "Keep-Alive: timeout=10, max=5000\r\n"
-			  "Content-Length: %ld\r\n"
-			  "Content-Type: %s\r\n"
-			  "\r\n",
-			  peticion, 
-			  date,
-              		  valor_cookie, 
-			  response_size(fd_fichero),
-			  filetype);
-	
-    	// Escribir respuesta en el descriptor
+    idx = sprintf(response, "%s\r\n"
+                            "Server: web.sstt5819.org\r\n"
+                            "Date: %s\r\n"
+                            "Connection: keep-alive\r\n"
+                            "Keep-Alive: timeout=10, max=5000\r\n"
+                            "Content-Length: %ld\r\n"
+                            "Content-Type: %s\r\n",
+                            peticion, date, response_size(fd_fichero), filetype);
+    
+    if (strstr(peticion, TOO_MANY_CODE) == NULL)
+        idx += sprintf(response + idx, "Set-Cookie: cookie_counter=%d; Max-Age=120\r\n",
+                       ++valor_cookie);
+
+    #undef TOO_MANY_CODE
+
+    sprintf(response + idx, "\r\n");
+
 	(void)write(fd_escritura, response, strlen(response));
 
-    	// Escribir en el descriptor el contenido del fichero
-	// en bloques de como máximo 8 kB
+	// bloques de como máximo 8 kB
 	while ((ret = read(fd_fichero, &response, BUFSIZE)) > 0)
 		(void)write(fd_escritura, response, ret);
 
-	// Cerrar fichero
 	(void)close(fd_fichero);
 }
 
@@ -418,24 +419,22 @@ process_web_request(int descriptorFichero)
 		return;
 	}
 
-    	//
-    	// Gestión de cookies
-    	//
+    //
+    // Gestión de cookies
+    //
 
-    	char *match = "Cookie: cookie_counter=";
-    	char *contains_cookie = strstr(buffer, match);
+    char *match = "Cookie: cookie_counter=";
+    char *contains_cookie = strstr(buffer, match);
 
-    	if (contains_cookie) {
-    		valor_cookie = (int) strtol (&contains_cookie[strlen(match)], (char **)NULL, 10);
-        	if (valor_cookie >= 10) {
-        		abrir_fichero(&fd, "formularios/429.html");
-            		response(fd, descriptorFichero, "HTTP/1.1 429 Too Many Requests", "text/html");
-            		debug(LOG, "Gestión de cookies, máximo de accesos", buffer, 0);
-            		exit(3);
-		} else {
-			valor_cookie++;
-		}
-    	}
+    if (contains_cookie) {
+        valor_cookie = (int) strtol(&contains_cookie[strlen(match)], (char **)NULL, 10);
+        if (valor_cookie >= 10) {
+            abrir_fichero(&fd, "formularios/429.html");
+            response(fd, descriptorFichero, "HTTP/1.1 429 Too Many Requests", "text/html");
+            exit(3);
+        }
+    }
+
 
 	//
 	// TRATAR LOS CASOS DE LOS DIFERENTES MÉTODOS QUE SE USAN
