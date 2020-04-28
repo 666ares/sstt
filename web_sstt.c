@@ -13,14 +13,14 @@
 #include <sys/stat.h>
 #include <regex.h>
 
-#define VERSION					24
-#define BUFSIZE					8096
-#define ERROR					42
-#define LOG						44
-#define PROHIBIDO				403
-#define NOENCONTRADO			404
-#define SEGS_SIN_PETICIONES		10
-#define DATESIZE				128
+#define VERSION			24
+#define BUFSIZE			8096
+#define ERROR			42
+#define LOG			44
+#define PROHIBIDO		403
+#define NOENCONTRADO		404
+#define SEGS_SIN_PETICIONES	10
+#define DATESIZE		128
 
 static const char *EMAIL = "joseantonio.pastorv%40um.es";
 
@@ -54,9 +54,8 @@ struct {
 	{0,      0} 
 };
 
-void 
-debug(int log_message_type, char *message, char *additional_info, 
-      int socket_fd)
+void debug(int log_message_type, char *message, char *additional_info, 
+      	   int socket_fd)
 {
 	int fd;
 	char logbuffer[BUFSIZE * 2];
@@ -91,8 +90,7 @@ debug(int log_message_type, char *message, char *additional_info,
 		exit(3);
 }
 
-long int
-response_size(int fd)
+long int response_size(int fd)
 {
 	struct stat st;
 	if (!fstat(fd, &st))
@@ -104,16 +102,14 @@ response_size(int fd)
 	return 0;
 }
 
-void
-parse_date(char *date)
+void parse_date(char *date)
 {
 	time_t now = time(0);
 	struct tm tm = *gmtime(&now);
 	strftime(date, DATESIZE, "%a, %d, %b %Y %H:%M:%S %Z", &tm);
 }
 
-char
-*strremove(char *str, const char *sub)
+char *strremove(char *str, const char *sub)
 {
 	char *p, *q, *r;
 	if ((q = r = strstr(str, sub)) != NULL) { 
@@ -128,8 +124,7 @@ char
 	return str;
 }
 
-char
-*ext_to_filetype(char *extension)
+char *ext_to_filetype(char *extension)
 {
 	/* Saltamos el punto */
 	extension++;
@@ -193,8 +188,8 @@ struct Request *parse_request(char raw_request[])
 }
 
 int compile_and_execute_regex(int _pmatch, int _nmatch, 
-			  			      const char *token,
-			  			      const char *regex)
+			      const char *token,
+			      const char *regex)
 {
 	int is_valid = 0, match, err;
 	regex_t preg;
@@ -208,7 +203,7 @@ int compile_and_execute_regex(int _pmatch, int _nmatch,
 		nmatch = preg.re_nsub;
 		regfree(&preg);
 
-		if (!match)						is_valid = 1;
+		if (!match)			is_valid = 1;
 		else if (match == REG_NOMATCH)	is_valid = 0;
 	}
 	
@@ -222,7 +217,7 @@ int is_valid_request(char request[])
 
 	const char *main_header_regex 	= "^([A-Za-z]+)(\\s+)(/.*)(\\s+)(HTTP/1.1)";
 	const char *other_headers_regex = "^(.*)(:)(\\s+)(.*)";
-    const char *email_query_regex 	= "^(.*)(=)(.*)";
+    	const char *email_query_regex 	= "^(.*)(=)(.*)";
 
 	/* Comprobamos la primera línea de la petición */
 	char *token = strtok(request_copy, "##");
@@ -233,14 +228,14 @@ int is_valid_request(char request[])
 	while (token != NULL) {
 		token = strtok(NULL, "##");
 		if (token != NULL) {
-            	if (strstr(token, "email=") != NULL) {
-                	if (!compile_and_execute_regex(4, 4, token, email_query_regex))
-                    	return 0;
-	 			} else {
-					if (!compile_and_execute_regex(5, 5, token, other_headers_regex))
-						return 0;
-				}
-        }
+            		if (strstr(token, "email=") != NULL) {
+                		if (!compile_and_execute_regex(4, 4, token, email_query_regex))
+                    			return 0;
+	 		} else {
+				if (!compile_and_execute_regex(5, 5, token, other_headers_regex))
+					return 0;
+			}
+        	}
 	}
 	
 	free(request_copy);
@@ -260,33 +255,33 @@ void response(int fd_fichero, int fd_escritura,
 	char response[BUFSIZE], date[DATESIZE];	
 	int ret, idx;
 
-    #define TOO_MANY_REQ_CODE "429"
+    	#define TOO_MANY_REQ_CODE "429"
 
 	/* Construimos la fecha */
 	parse_date(date);
 
-    idx = sprintf(response, "%s\r\n"
-                            "Server: web.sstt5819.org\r\n"
-                            "Date: %s\r\n"
-                            "Connection: keep-alive\r\n"
-                            "Keep-Alive: timeout=10, max=5000\r\n"
-                            "Content-Length: %ld\r\n"
-                            "Content-Type: %s\r\n",
-                            peticion, date, response_size(fd_fichero), filetype);
+    	idx = sprintf(response, "%s\r\n"
+                            	"Server: web.sstt5819.org\r\n"
+                            	"Date: %s\r\n"
+                            	"Connection: keep-alive\r\n"
+                            	"Keep-Alive: timeout=10, max=5000\r\n"
+                            	"Content-Length: %ld\r\n"
+                            	"Content-Type: %s\r\n",
+                            	peticion, date, response_size(fd_fichero), filetype);
     
 	/* 
-        Añadimos la cabecera 'Set-Cookie' siempre que la respuesta
-	    no sea un 429 (indica que se ha alcanzado el máximo de
-	    peticiones) 
-    */
-    if (strstr(peticion, TOO_MANY_REQ_CODE) == NULL)
-        idx += sprintf(response + idx, 
-					   "Set-Cookie: cookie_counter=%d; Max-Age=120\r\n",
-                       ++valor_cookie);
+        	Añadimos la cabecera 'Set-Cookie' siempre que la respuesta
+	    	no sea un 429 (indica que se ha alcanzado el máximo de
+	    	peticiones) 
+    	*/
+    	if (strstr(peticion, TOO_MANY_REQ_CODE) == NULL)
+        	idx += sprintf(response + idx, 
+			       "Set-Cookie: cookie_counter=%d; Max-Age=120\r\n",
+                       	       ++valor_cookie);
 
-    #undef TOO_MANY_REQ_CODE
+    	#undef TOO_MANY_REQ_CODE
 
-    sprintf(response + idx, "\r\n");
+    	sprintf(response + idx, "\r\n");
 
 	(void)write(fd_escritura, response, strlen(response));
 
@@ -302,10 +297,10 @@ int is_forbidden(char *path)
 	char buffer[strlen(path)];
 	strcpy(buffer, path);
     
-    if (strstr(buffer, "../") != NULL) 
-        return 1;
+    	if (strstr(buffer, "../") != NULL) 
+        	return 1;
 
-     return 0;
+     	return 0;
 }
 
 int input_timeout(int filedes, unsigned int seconds,
@@ -337,10 +332,10 @@ void process_web_request(int descriptorFichero)
 	//
 	
 	char 	buffer[BUFSIZE + 1] = {0};	// Buffer donde se almacena la petición recibida
-	struct 	Request *req;				// Estructura donde guardar los distintos campos de la petición
-	long 	bytes_leidos;				// Bytes leídos de la petición
-	long 	indice;						// Variable auxiliar para recorrer el buffer
-	int 	fd;							// Descriptor para abrir los html
+	struct 	Request *req;			// Estructura donde guardar los distintos campos de la petición
+	long 	bytes_leidos;			// Bytes leídos de la petición
+	long 	indice;				// Variable auxiliar para recorrer el buffer
+	int 	fd;				// Descriptor para abrir los html
 
 	//
 	// Leer la petición HTTP
@@ -350,7 +345,7 @@ void process_web_request(int descriptorFichero)
 
 	while (input_timeout(descriptorFichero, 0, 100000))
 		bytes_leidos += read(descriptorFichero, buffer + bytes_leidos,
-					BUFSIZE - bytes_leidos);
+				     BUFSIZE - bytes_leidos);
 
 	//
 	// Comprobación de errores de lectura
@@ -373,17 +368,17 @@ void process_web_request(int descriptorFichero)
 	//
         	
 	for (indice = 0; indice < bytes_leidos; indice++) {
-        if (buffer[indice] == '\r' || buffer[indice] == '\n')
-            buffer[indice] = '#';
-    }
+        	if (buffer[indice] == '\r' || buffer[indice] == '\n')
+        		buffer[indice] = '#';
+    	}
 
 	//
 	// Comprobar si la petición es válida
 	//
         
 	if (!is_valid_request(buffer)) {	
-    	abrir_fichero(&fd, "formularios/400.html");        
-        response(fd, descriptorFichero, "HTTP/1.1 400 Bad Request", "text/html");
+    		abrir_fichero(&fd, "formularios/400.html");        
+        	response(fd, descriptorFichero, "HTTP/1.1 400 Bad Request", "text/html");
 		return;	
 	}
 
@@ -400,27 +395,26 @@ void process_web_request(int descriptorFichero)
 	//
 
 	if (req->method == UNSUPPORTED) {
-        abrir_fichero(&fd, "formularios/405.html");
+        	abrir_fichero(&fd, "formularios/405.html");
 		response(fd, descriptorFichero, "HTTP/1.1 405 Method Not Allowed", "text/html");
 		return;
 	}
 
-    //
-    // Gestión de cookies
-    //
+    	//
+    	// Gestión de cookies
+    	//
 
-    char *match = "Cookie: cookie_counter=";
-    char *contains_cookie = strstr(buffer, match);
+    	char *match = "Cookie: cookie_counter=";
+    	char *contains_cookie = strstr(buffer, match);
 
-    if (contains_cookie) {
-        valor_cookie = (int) strtol(&contains_cookie[strlen(match)], (char **)NULL, 10);
-        if (valor_cookie >= 10) {
-            abrir_fichero(&fd, "formularios/429.html");
-            response(fd, descriptorFichero, "HTTP/1.1 429 Too Many Requests", "text/html");
-            exit(3);
-        }
-    }
-
+    	if (contains_cookie) {
+        	valor_cookie = (int) strtol(&contains_cookie[strlen(match)], (char **)NULL, 10);
+        	if (valor_cookie >= 10) {
+            		abrir_fichero(&fd, "formularios/429.html");
+            		response(fd, descriptorFichero, "HTTP/1.1 429 Too Many Requests", "text/html");
+            		exit(3);
+        	}
+    	}
 
 	//
 	// TRATAR LOS CASOS DE LOS DIFERENTES MÉTODOS QUE SE USAN
@@ -447,7 +441,7 @@ void process_web_request(int descriptorFichero)
 			abrir_fichero(&fd, "formularios/correo_mal.html");
 
 		//
-        // Enviar respuesta
+        	// Enviar respuesta
 		//
 
 		response(fd, descriptorFichero, "HTTP/1.1 200 OK", "text/html");
@@ -473,7 +467,7 @@ void process_web_request(int descriptorFichero)
 			//
 
 			if (is_forbidden(req->path)) {		
-                abrir_fichero(&fd, "formularios/403.html");
+                		abrir_fichero(&fd, "formularios/403.html");
 				response(fd, descriptorFichero, "HTTP/1.1 403 Forbidden", "text/html");
 			}
 			
@@ -492,7 +486,7 @@ void process_web_request(int descriptorFichero)
 				//
 				
 				if (!extension) {			
-                    abrir_fichero(&fd, "formularios/400.html");
+                    			abrir_fichero(&fd, "formularios/400.html");
 					response(fd, descriptorFichero, "HTTP/1.1 400 Bad Request", "text/html");
 				}
 				
@@ -506,7 +500,7 @@ void process_web_request(int descriptorFichero)
 					char *filetype = ext_to_filetype(extension);
 
 					if (!filetype) {		
-                        abrir_fichero(&fd, "formularios/415.html");
+                        			abrir_fichero(&fd, "formularios/415.html");
 						response(fd, descriptorFichero, "HTTP/1.1 415 Unsupported Media Type", "text/html");	
 					}
 					
@@ -519,7 +513,7 @@ void process_web_request(int descriptorFichero)
 						//
 
 						if ((fd = open(req->path + 1, O_RDONLY)) < 0) {		
-                            abrir_fichero(&fd, "formularios/404.html");
+                            				abrir_fichero(&fd, "formularios/404.html");
 							response(fd, descriptorFichero, "HTTP/1.1 404 Not Found", "text/html");
 						}
 						else {
@@ -531,7 +525,7 @@ void process_web_request(int descriptorFichero)
 		}
 	}	
 	close(descriptorFichero);
-    exit(1);
+    	exit(1);
 }
 
 int main(int argc, char **argv)
@@ -600,7 +594,7 @@ int main(int argc, char **argv)
 	if (listen(listenfd, 64) < 0)
 		debug(ERROR, "system call", "listen", 0);
 	
-    (void)printf("*> web server starting (port=%d)\n", port);
+    	(void)printf("*> web server starting (port=%d)\n", port);
 	
 	while(1) {
 
@@ -627,7 +621,7 @@ int main(int argc, char **argv)
 					tv.tv_sec = SEGS_SIN_PETICIONES;
 					tv.tv_usec = 0;
 					retval = select(socketfd + 1, &rfds, NULL, NULL, &tv);
-                    (retval ? process_web_request(socketfd) : (void)close(socketfd));
+                    			(retval ? process_web_request(socketfd) : (void)close(socketfd));
 				}
 
 			} else { // Proceso padre
