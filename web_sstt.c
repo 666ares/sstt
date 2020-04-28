@@ -68,12 +68,10 @@ debug(int log_message_type, char *message, char *additional_info,
 			break;
 
 		case PROHIBIDO:
-			// Enviar como respuesta 403 Forbidden
 			(void)sprintf(logbuffer,"FORBIDDEN: [%s] [%s]", message, additional_info);
 			break;
 
 		case NOENCONTRADO:
-			// Enviar como respuesta 404 Not Found
 			(void)sprintf(logbuffer,"NOT FOUND: [%s] [%s]", message, additional_info);
 			break;
 
@@ -133,32 +131,29 @@ char
 char
 *ext_to_filetype(char *extension)
 {
-	// Saltamos el punto
+	/* Saltamos el punto */
 	extension++;
 
-	// El fichero acaba en punto pero no tiene extensión	
+	/* El fichero acaba en punto pero no tiene extensión */	
 	if (!strcmp(extension, ""))
 		return NULL;
 
-	// Devolvemos el tipo de fichero
 	for (int i = 0; extensions[i].ext != 0; i++) {
 		if (!strcmp(extension, extensions[i].ext))
 			return extensions[i].filetype;
 	}	
 
-	// La extensión no está soportada
+	/* La extensión no está soportada */
 	return NULL;
 }
 
-void
-free_request(struct Request *req)
+void free_request(struct Request *req)
 {
-	free(req->path);
-	free(req);
+	free(req->path); 
+    free(req);
 }
 
-struct Request
-*parse_request(char raw_request[])
+struct Request *parse_request(char raw_request[]) 
 {
 	#define S_GET	"GET"
 	#define S_POST	"POST"
@@ -169,7 +164,7 @@ struct Request
 		return NULL;
 	memset(req, 0, sizeof(struct Request));
 
-	// Parseamos el método
+	/* Parseamos el método */
 	size_t method_len = strcspn(raw_request, " ");
 	if (strncmp(raw_request, S_GET, sizeof S_GET - 1) == 0)
 		req->method = GET;
@@ -181,10 +176,10 @@ struct Request
 	#undef S_GET
 	#undef S_POST
 	
-	// Saltamos el espacio entre  el método y la ruta
+	/* Saltamos el espacio entre  el método y la ruta */
 	raw_request += method_len + 1;
 
-	// Parseamos la ruta del fichero solicitado
+	/* Parseamos la ruta del fichero solicitado */
 	size_t path_len = strcspn(raw_request, " ");
 	req->path = malloc(path_len + 1);
 	if (!req->path) {
@@ -197,10 +192,9 @@ struct Request
 	return req;
 }
 
-int
-compile_and_execute_regex(int _pmatch, int _nmatch, 
-			  			  const char *token,
-			  			  const char *regex)
+int compile_and_execute_regex(int _pmatch, int _nmatch, 
+			  			      const char *token,
+			  			      const char *regex)
 {
 	int is_valid = 0, match, err;
 	regex_t preg;
@@ -221,25 +215,22 @@ compile_and_execute_regex(int _pmatch, int _nmatch,
 	return is_valid;
 }
 
-int
-is_valid_request(char request[])
+int is_valid_request(char request[])
 {
-	// 'strdup' para crear una copia modificable del buffer
-	// ('strtok' necesitará modificarlo después)
+	/* 'strdup' para crear una copia modificable del buffer */
 	char *request_copy = strdup(request);
 
 	const char *main_header_regex 	= "^([A-Za-z]+)(\\s+)(/.*)(\\s+)(HTTP/1.1)";
 	const char *other_headers_regex = "^(.*)(:)(\\s+)(.*)";
     const char *email_query_regex 	= "^(.*)(=)(.*)";
 
-	// Comprobamos la primera línea de la petición
+	/* Comprobamos la primera línea de la petición */
 	char *token = strtok(request_copy, "##");
 	if (!compile_and_execute_regex(6, 6, token, main_header_regex)) 
 		return 0;
 
-	// Comprobamos el resto de cabeceras
+	/* Comprobamos el resto de líneas */
 	while (token != NULL) {
-		// Obtenemos la siguiente cabecera
 		token = strtok(NULL, "##");
 		if (token != NULL) {
             	if (strstr(token, "email=") != NULL) {
@@ -253,29 +244,25 @@ is_valid_request(char request[])
 	}
 	
 	free(request_copy);
-	// Petición válida
+	/* Petición válida */
 	return 1;
 }
 
-void
-abrir_fichero(int *fd, char *fichero)
+void abrir_fichero(int *fd, char *fichero)
 {
 	if ((*fd = open(fichero, O_RDONLY)) < 0)
 		debug(ERROR, "system call", "open", 0);
 }
 
-void 
-response(int fd_fichero, int fd_escritura,
-         char *peticion, char *filetype)
+void response(int fd_fichero, int fd_escritura,
+              char *peticion, char *filetype)
 {
-	char response[BUFSIZE];	
-	char date[DATESIZE];
-	int ret;
-    int idx;
+	char response[BUFSIZE], date[DATESIZE];	
+	int ret, idx;
 
-    #define TOO_MANY_CODE "429"
+    #define TOO_MANY_REQ_CODE "429"
 
-	// Construimos la fecha
+	/* Construimos la fecha */
 	parse_date(date);
 
     idx = sprintf(response, "%s\r\n"
@@ -287,51 +274,51 @@ response(int fd_fichero, int fd_escritura,
                             "Content-Type: %s\r\n",
                             peticion, date, response_size(fd_fichero), filetype);
     
-	// Añadimos la cabecera 'Set-Cookie' siempre que la respuesta
-	// no sea un 429 (indica que se ha alcanzado el máximo de
-	// peticiones)
-    if (strstr(peticion, TOO_MANY_CODE) == NULL)
+	/* 
+        Añadimos la cabecera 'Set-Cookie' siempre que la respuesta
+	    no sea un 429 (indica que se ha alcanzado el máximo de
+	    peticiones) 
+    */
+    if (strstr(peticion, TOO_MANY_REQ_CODE) == NULL)
         idx += sprintf(response + idx, 
 					   "Set-Cookie: cookie_counter=%d; Max-Age=120\r\n",
                        ++valor_cookie);
 
-    #undef TOO_MANY_CODE
+    #undef TOO_MANY_REQ_CODE
 
     sprintf(response + idx, "\r\n");
 
 	(void)write(fd_escritura, response, strlen(response));
 
-	// bloques de como máximo 8 kB
+	/* bloques de como máximo 8 kB */
 	while ((ret = read(fd_fichero, &response, BUFSIZE)) > 0)
 		(void)write(fd_escritura, response, ret);
 
 	(void)close(fd_fichero);
 }
 
-int
-is_forbidden(char *path) 
+int is_forbidden(char *path) 
 {
 	char buffer[strlen(path)];
 	strcpy(buffer, path);
+    
+    if (strstr(buffer, "../") != NULL) 
+        return 1;
 
-	if (strstr(buffer, "../") != NULL)
-		return 1;
-
-	return 0;
+     return 0;
 }
 
-int
-input_timeout(int filedes, unsigned int seconds,
-	      unsigned int microsecs)
+int input_timeout(int filedes, unsigned int seconds,
+	              unsigned int microsecs)
 {
 	fd_set rfds;
 	struct timeval tv;
 	
-	// Initialize the file descriptor set
+	/* Initialize the file descriptor set */
 	FD_ZERO(&rfds);
 	FD_SET(filedes, &rfds);
 
-	// Initialize the timeout data structure
+	/* Initialize the timeout data structure */
 	tv.tv_sec = seconds;
 	tv.tv_usec = microsecs;
 
@@ -341,8 +328,7 @@ input_timeout(int filedes, unsigned int seconds,
 	return FD_ISSET(filedes, &rfds);
 }
 
-void 
-process_web_request(int descriptorFichero)
+void process_web_request(int descriptorFichero)
 {	
 	debug(LOG, "Request", "Ha llegado una petición.", descriptorFichero);
 
@@ -387,8 +373,8 @@ process_web_request(int descriptorFichero)
 	//
         	
 	for (indice = 0; indice < bytes_leidos; indice++) {
-        	if (buffer[indice] == '\r' || buffer[indice] == '\n')
-                	buffer[indice] = '#';
+        if (buffer[indice] == '\r' || buffer[indice] == '\n')
+            buffer[indice] = '#';
     }
 
 	//
@@ -614,7 +600,7 @@ int main(int argc, char **argv)
 	if (listen(listenfd, 64) < 0)
 		debug(ERROR, "system call", "listen", 0);
 	
-	(void)printf("\n -> web server starting (port=%d)\n", port);
+    (void)printf("*> web server starting (port=%d)\n", port);
 	
 	while(1) {
 
