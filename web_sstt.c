@@ -441,10 +441,11 @@ void process_web_request(int descriptorFichero)
 			abrir_fichero(&fd, "formularios/correo_mal.html");
 
 		//
-        	// Enviar respuesta
+        // Enviar respuesta
 		//
 
 		response(fd, descriptorFichero, "HTTP/1.1 200 OK", "text/html");
+		return;
 	}
 
 	else if (req->method == GET) {
@@ -457,6 +458,7 @@ void process_web_request(int descriptorFichero)
 		if (strcmp(req->path, "/") == 0) {
 			abrir_fichero(&fd, "formularios/index.html");
 			response(fd, descriptorFichero, "HTTP/1.1 200 OK", "text/html");
+			return;
 		} 
 		
 		else {
@@ -467,8 +469,9 @@ void process_web_request(int descriptorFichero)
 			//
 
 			if (is_forbidden(req->path)) {		
-                		abrir_fichero(&fd, "formularios/403.html");
+                abrir_fichero(&fd, "formularios/403.html");
 				response(fd, descriptorFichero, "HTTP/1.1 403 Forbidden", "text/html");
+				return;
 			}
 			
 			else {
@@ -486,8 +489,9 @@ void process_web_request(int descriptorFichero)
 				//
 				
 				if (!extension) {			
-                    			abrir_fichero(&fd, "formularios/400.html");
+                    abrir_fichero(&fd, "formularios/400.html");
 					response(fd, descriptorFichero, "HTTP/1.1 400 Bad Request", "text/html");
+					return;
 				}
 				
 				else {
@@ -500,8 +504,9 @@ void process_web_request(int descriptorFichero)
 					char *filetype = ext_to_filetype(extension);
 
 					if (!filetype) {		
-                        			abrir_fichero(&fd, "formularios/415.html");
-						response(fd, descriptorFichero, "HTTP/1.1 415 Unsupported Media Type", "text/html");	
+                        abrir_fichero(&fd, "formularios/415.html");
+						response(fd, descriptorFichero, "HTTP/1.1 415 Unsupported Media Type", "text/html");
+						return;
 					}
 					
 					else {
@@ -513,12 +518,13 @@ void process_web_request(int descriptorFichero)
 						//
 
 						if ((fd = open(req->path + 1, O_RDONLY)) < 0) {		
-                            				abrir_fichero(&fd, "formularios/404.html");
+                            abrir_fichero(&fd, "formularios/404.html");
 							response(fd, descriptorFichero, "HTTP/1.1 404 Not Found", "text/html");
 						}
 						else {
 							response(fd, descriptorFichero, "HTTP/1.1 200 OK", filetype);
 						}
+						return;
 					}
 				}	
 			}
