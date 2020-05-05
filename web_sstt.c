@@ -269,11 +269,6 @@ void response(int fd_fichero, int fd_escritura,
                             	"Content-Type: %s\r\n",
                             	peticion, date, response_size(fd_fichero), filetype);
     
-	/* 
-        	Añadimos la cabecera 'Set-Cookie' siempre que la respuesta
-	    	no sea un 429 (indica que se ha alcanzado el máximo de
-	    	peticiones) 
-    	*/
     	if (strstr(peticion, TOO_MANY_REQ_CODE) == NULL)
         	idx += sprintf(response + idx, 
 			       "Set-Cookie: cookie_counter=%d; Max-Age=120\r\n",
@@ -441,7 +436,7 @@ void process_web_request(int descriptorFichero)
 			abrir_fichero(&fd, "formularios/correo_mal.html");
 
 		//
-        // Enviar respuesta
+        	// Enviar respuesta
 		//
 
 		response(fd, descriptorFichero, "HTTP/1.1 200 OK", "text/html");
@@ -469,7 +464,7 @@ void process_web_request(int descriptorFichero)
 			//
 
 			if (is_forbidden(req->path)) {		
-                abrir_fichero(&fd, "formularios/403.html");
+                		abrir_fichero(&fd, "formularios/403.html");
 				response(fd, descriptorFichero, "HTTP/1.1 403 Forbidden", "text/html");
 				return;
 			}
@@ -489,7 +484,7 @@ void process_web_request(int descriptorFichero)
 				//
 				
 				if (!extension) {			
-                    abrir_fichero(&fd, "formularios/400.html");
+                    			abrir_fichero(&fd, "formularios/400.html");
 					response(fd, descriptorFichero, "HTTP/1.1 400 Bad Request", "text/html");
 					return;
 				}
@@ -504,7 +499,7 @@ void process_web_request(int descriptorFichero)
 					char *filetype = ext_to_filetype(extension);
 
 					if (!filetype) {		
-                        abrir_fichero(&fd, "formularios/415.html");
+                        			abrir_fichero(&fd, "formularios/415.html");
 						response(fd, descriptorFichero, "HTTP/1.1 415 Unsupported Media Type", "text/html");
 						return;
 					}
@@ -518,7 +513,7 @@ void process_web_request(int descriptorFichero)
 						//
 
 						if ((fd = open(req->path + 1, O_RDONLY)) < 0) {		
-                            abrir_fichero(&fd, "formularios/404.html");
+                           				abrir_fichero(&fd, "formularios/404.html");
 							response(fd, descriptorFichero, "HTTP/1.1 404 Not Found", "text/html");
 						}
 						else {
@@ -539,7 +534,7 @@ int main(int argc, char **argv)
 	// int i;
 	int port, pid, listenfd, socketfd;
 	socklen_t length;
-	static struct sockaddr_in cli_addr;		// static = Inicializado con ceros
+	static struct sockaddr_in cli_addr;	// static = Inicializado con ceros
 	static struct sockaddr_in serv_addr;	// static = Inicializado con ceros
 	
 	//  Argumentos que se esperan:
